@@ -926,7 +926,7 @@ if mode == "Species Analysis":
                 with g1:
                     st.metric("Grid Cells Covered", f"{gap_stats['covered']:,}")
                 with g2:
-                    st.metric("Global Coverage", f"{100 - gap_stats['gap_pct']}%")
+                    st.metric("Global Coverage", f"{gap_stats['cov_pct']}%")
                 with g3:
                     st.metric("Countries", f"{gap_stats['countries']:,}")
 

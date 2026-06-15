@@ -18,13 +18,11 @@ def build_gap_map(df):
             tiles="CartoDB dark_matter"
         )
 
-        # grid resolution in degrees
         grid_size = 10
 
         lat_bins = np.arange(-90,  91, grid_size)
         lon_bins = np.arange(-180, 181, grid_size)
 
-        # count records per cell
         clean = clean.copy()
         clean["lat_bin"] = pd.cut(
             clean["decimalLatitude"],
@@ -43,7 +41,6 @@ def build_gap_map(df):
 
         max_count = cell_counts["count"].max() if not cell_counts.empty else 1
 
-        # draw grid cells
         for _, row in cell_counts.iterrows():
             try:
                 lat_s = float(row["lat_bin"])
@@ -52,8 +49,8 @@ def build_gap_map(df):
                 lon_e = lon_w + grid_size
                 count = row["count"]
 
-                ratio = count / max_count
-                color = _gap_color(ratio)
+                ratio   = count / max_count
+                color   = _gap_color(ratio)
                 opacity = 0.3 + ratio * 0.5
 
                 folium.Rectangle(
@@ -94,8 +91,9 @@ def _gap_color(ratio):
 def get_gap_stats(df):
     try:
         clean = df[["decimalLatitude", "decimalLongitude",
-                    "country"]].dropna(subset=["decimalLatitude",
-                                               "decimalLongitude"])
+                    "country"]].dropna(
+            subset=["decimalLatitude", "decimalLongitude"]
+        )
 
         total_cells = (180 // 10) * (360 // 10)
 
@@ -104,23 +102,29 @@ def get_gap_stats(df):
 
         clean = clean.copy()
         clean["lat_bin"] = pd.cut(
-            clean["decimalLatitude"],  bins=lat_bins, labels=lat_bins[:-1]
+            clean["decimalLatitude"],
+            bins=lat_bins,
+            labels=lat_bins[:-1]
         )
         clean["lon_bin"] = pd.cut(
-            clean["decimalLongitude"], bins=lon_bins, labels=lon_bins[:-1]
+            clean["decimalLongitude"],
+            bins=lon_bins,
+            labels=lon_bins[:-1]
         )
 
         cells_with_data = clean.groupby(
             ["lat_bin", "lon_bin"]
         ).size().reset_index()
 
-        covered = len(cells_with_data)
+        covered  = len(cells_with_data)
         gap_pct  = round((1 - covered / total_cells) * 100, 1)
+        cov_pct  = round(covered / total_cells * 100, 1)
 
         return {
             "total_cells" : total_cells,
             "covered"     : covered,
             "gap_pct"     : gap_pct,
+            "cov_pct"     : cov_pct,
             "countries"   : clean["country"].nunique()
                             if "country" in clean.columns else 0
         }
