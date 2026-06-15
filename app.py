@@ -266,10 +266,7 @@ st.markdown("""
         color: #F0F6FC;
         margin-bottom: 0.5rem;
     }
-    .pub-stat {
-        font-size: 0.875rem;
-        color: #8B949E;
-    }
+    .pub-stat { font-size: 0.875rem; color: #8B949E; }
     hr { border-color: #21262D; margin: 1rem 0; }
 </style>
 """, unsafe_allow_html=True)
@@ -288,14 +285,12 @@ st.markdown("""
 
 # ── sidebar ───────────────────────────────────────────────
 with st.sidebar:
-
     st.markdown('<p class="sidebar-label">Mode</p>', unsafe_allow_html=True)
     mode = st.radio(
         "",
         ["Species Analysis", "Publisher Report Card"],
         label_visibility="collapsed"
     )
-
     st.divider()
 
     if mode == "Species Analysis":
@@ -332,8 +327,6 @@ with st.sidebar:
             step=100,
             label_visibility="collapsed"
         )
-        if limit > 1000:
-            st.caption("⚠️ Large requests may take 30–60 seconds")
 
         st.divider()
 
@@ -369,7 +362,6 @@ with st.sidebar:
             placeholder="e.g. iNaturalist",
             label_visibility="collapsed"
         )
-
         st.divider()
         pub_btn = st.button(
             "Get Report Card",
@@ -512,7 +504,6 @@ if mode == "Species Analysis":
                     '<p class="section-header">Quality Issues</p>',
                     unsafe_allow_html=True
                 )
-
                 skip      = ["any_flag", "has_issues"]
                 issue_rows = []
                 found_any  = False
@@ -524,8 +515,7 @@ if mode == "Species Analysis":
                             "Flagged Records": stats["count"],
                             "Percentage"     : f"{stats['percent']}%",
                             "Status"         : "Issue Found"
-                                               if stats["count"] > 0
-                                               else "OK"
+                                               if stats["count"] > 0 else "OK"
                         })
                         if stats["count"] > 0:
                             found_any = True
@@ -578,8 +568,7 @@ if mode == "Species Analysis":
                     badge = (
                         '<span class="fitness-badge-yes">Suitable</span>'
                         if f["suitable"] else
-                        '<span class="fitness-badge-no">'
-                        'Not Recommended</span>'
+                        '<span class="fitness-badge-no">Not Recommended</span>'
                     )
                     st.markdown(f"""
                     <div class="fitness-row">
@@ -663,11 +652,7 @@ if mode == "Species Analysis":
                 try:
                     with st.spinner("Rendering map..."):
                         m = build_map(df, flags, map_type="points")
-                        st_folium(
-                            m, width=None,
-                            height=560,
-                            returned_objects=[]
-                        )
+                        st_folium(m, width=None, height=560, returned_objects=[])
                 except Exception as e:
                     st.error(f"Map error: {str(e)}")
 
@@ -675,11 +660,7 @@ if mode == "Species Analysis":
                 try:
                     with st.spinner("Rendering heatmap..."):
                         m = build_map(df, flags, map_type="heatmap")
-                        st_folium(
-                            m, width=None,
-                            height=560,
-                            returned_objects=[]
-                        )
+                        st_folium(m, width=None, height=560, returned_objects=[])
                 except Exception as e:
                     st.error(f"Map error: {str(e)}")
 
@@ -726,11 +707,9 @@ if mode == "Species Analysis":
                             ).add_to(m_db)
                         except Exception:
                             continue
-                    st_folium(
-                        m_db, width=None,
-                        height=560,
-                        returned_objects=[]
-                    )
+
+                    st_folium(m_db, width=None, height=560, returned_objects=[])
+
                     if outliers is not None:
                         out_stats = outlier_summary(outliers)
                         st.info(
@@ -783,9 +762,7 @@ if mode == "Species Analysis":
                         <div class="temporal-stat-value">
                             {temporal_stats['last_year']}
                         </div>
-                        <div class="temporal-stat-label">
-                            Latest Record
-                        </div>
+                        <div class="temporal-stat-label">Latest Record</div>
                     </div>""", unsafe_allow_html=True)
                 with c3:
                     st.markdown(f"""
@@ -812,15 +789,11 @@ if mode == "Species Analysis":
                 with col1:
                     fig_year = chart_records_per_year(df)
                     if fig_year:
-                        st.plotly_chart(
-                            fig_year, use_container_width=True
-                        )
+                        st.plotly_chart(fig_year, use_container_width=True)
                 with col2:
                     fig_decade = chart_decade_breakdown(df)
                     if fig_decade:
-                        st.plotly_chart(
-                            fig_decade, use_container_width=True
-                        )
+                        st.plotly_chart(fig_decade, use_container_width=True)
 
                 st.markdown(
                     '<p class="section-header">Temporal Insights</p>',
@@ -829,8 +802,8 @@ if mode == "Species Analysis":
 
                 insights = [
                     f"Peak recording year was "
-                    f"**{temporal_stats['peak_year']}**"
-                    f" with **{temporal_stats['peak_count']:,}** records.",
+                    f"**{temporal_stats['peak_year']}** "
+                    f"with **{temporal_stats['peak_count']:,}** records.",
                     f"Recording trend is "
                     f"**{temporal_stats['trend']}** over time.",
                     f"**{temporal_stats['recent_pct']}%** of records are "
@@ -940,7 +913,6 @@ if mode == "Species Analysis":
                     'Record Reliability Scores</p>',
                     unsafe_allow_html=True
                 )
-
                 avg_rel          = round(reliability.mean(), 1)
                 rel_lab, rel_col = get_reliability_label(avg_rel)
 
@@ -1011,9 +983,7 @@ if mode == "Species Analysis":
                 st.download_button(
                     label="Download Full Dataset",
                     data=csv_full,
-                    file_name=(
-                        f"gbif_{species.replace(' ','_')}_full.csv"
-                    ),
+                    file_name=f"gbif_{species.replace(' ','_')}_full.csv",
                     mime="text/csv",
                     use_container_width=True
                 )
@@ -1024,9 +994,7 @@ if mode == "Species Analysis":
                 st.download_button(
                     label="Download Clean Records",
                     data=csv_clean,
-                    file_name=(
-                        f"gbif_{species.replace(' ','_')}_clean.csv"
-                    ),
+                    file_name=f"gbif_{species.replace(' ','_')}_clean.csv",
                     mime="text/csv",
                     use_container_width=True
                 )
@@ -1041,8 +1009,7 @@ if mode == "Species Analysis":
                         label="Download With Reliability Scores",
                         data=csv_rel,
                         file_name=(
-                            f"gbif_"
-                            f"{species.replace(' ','_')}_scored.csv"
+                            f"gbif_{species.replace(' ','_')}_scored.csv"
                         ),
                         mime="text/csv",
                         use_container_width=True
@@ -1057,8 +1024,8 @@ if mode == "Species Analysis":
                 unsafe_allow_html=True
             )
             st.caption(
-                "Copy and paste directly into your "
-                "research paper methods section."
+                "Copy and paste directly into your research paper "
+                "methods section."
             )
 
             methods_text = generate_methods_text(
@@ -1094,8 +1061,8 @@ else:
         </p>
         <p style="font-size:0.875rem;color:#8B949E;
                   margin:0.3rem 0 0 0">
-            Assess the data quality and coverage of any
-            GBIF data publishing institution
+            Assess the data quality and coverage of any GBIF
+            data publishing institution
         </p>
     </div>
     """, unsafe_allow_html=True)
@@ -1171,9 +1138,7 @@ else:
             hide_index=True
         )
 
-        csv_pub = report["datasets"].to_csv(
-            index=False
-        ).encode("utf-8")
+        csv_pub = report["datasets"].to_csv(index=False).encode("utf-8")
         st.download_button(
             label="Download Publisher Report (CSV)",
             data=csv_pub,
