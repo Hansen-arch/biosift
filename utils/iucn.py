@@ -19,6 +19,10 @@ def get_iucn_status(species_name, api_key):
     try:
         url = f"https://apiv3.iucnredlist.org/api/v3/species/{species_name}?token={api_key}"
         response = requests.get(url, timeout=10)
+
+        if response.status_code != 200:
+            return None
+
         data = response.json()
 
         if not data.get("result"):
@@ -36,5 +40,9 @@ def get_iucn_status(species_name, api_key):
             "published_year": result.get("published_year", "N/A")
         }
 
+    except requests.exceptions.Timeout:
+        return None
+    except requests.exceptions.ConnectionError:
+        return None
     except Exception:
         return None

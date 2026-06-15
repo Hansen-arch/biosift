@@ -12,7 +12,7 @@ from utils.charts import (
     chart_top_countries
 )
 
-# ── page config ──────────────────────────────────────────
+# ── page config ───────────────────────────────────────────
 st.set_page_config(
     page_title="GBIF QuickCheck",
     page_icon="🌍",
@@ -29,7 +29,6 @@ with st.sidebar:
     st.image("https://www.gbif.org/img/logo/GBIF-2015.png", width=150)
     st.header("⚙️ Search Settings")
 
-    # sample species quick select
     st.subheader("Quick Select")
     sample_choice = st.selectbox(
         "Load a sample species",
@@ -42,16 +41,14 @@ with st.sidebar:
         placeholder="e.g. Panthera leo"
     )
 
-    # if sample selected, override input
     if sample_choice != "— select —":
         species_input = SAMPLE_SPECIES[sample_choice]
         st.info(f"Using: *{species_input}*")
 
-    limit = st.slider("Max records to fetch", 100, 10000, 1000, step=100)
+    limit = st.slider("Max records to fetch", 100, 10000, 300, step=100)
 
     st.divider()
 
-    # IUCN key
     st.subheader("🔴 IUCN Red List")
     iucn_key = st.text_input(
         "IUCN API Key (optional)",
@@ -72,24 +69,31 @@ with st.sidebar:
 # ── search logic ──────────────────────────────────────────
 if search_btn:
     if not species_input:
-        st.warning("Please enter a species name or select a sample.")
+        st.warning("⚠️ Please enter a species name or select a sample.")
     else:
         with st.spinner(f"Fetching GBIF data for *{species_input}*..."):
-            df, total = fetch_occurrences(species_input, limit)
+            df, total, error = fetch_occurrences(species_input, limit)
 
-            if df is None:
-                st.error("No records found. Check species name spelling.")
+            if error:
+                st.error(f"❌ {error}")
             else:
-                st.session_state["df"] = df
-                st.session_state["total"] = total
+                st.session_state["df"]      = df
+                st.session_state["total"]   = total
                 st.session_state["species"] = species_input
-                st.session_state["flags"] = run_quality_checks(df)
-                st.session_state["summary"] = quality_summary(st.session_state["flags"])
+                st.session_state["flags"]   = run_quality_checks(df)
+                st.session_state["summary"] = quality_summary(
+                    st.session_state["flags"]
+                )
 
-                # IUCN fetch
                 if iucn_key:
                     with st.spinner("Fetching IUCN status..."):
-                        st.session_state["iucn"] = get_iucn_status(species_input, iucn_key)
+                        iucn = get_iucn_status(species_input, iucn_key)
+                        if iucn is None:
+                            st.warning(
+                                "⚠️ IUCN status not found. "
+                                "Check species name or API key."
+                            )
+                        st.session_state["iucn"] = iucn
                 else:
                     st.session_state["iucn"] = None
 
@@ -119,7 +123,7 @@ if "df" in st.session_state:
     with col4:
         st.metric("Health Score", f"{score}%")
 
-    # IUCN badge
+    # ── IUCN badge ────────────────────────────────────────
     if iucn:
         status_colors = {
             "EX": "red", "EW": "red",
@@ -130,8 +134,10 @@ if "df" in st.session_state:
         color = status_colors.get(iucn["category"], "gray")
         st.markdown(
             f"**IUCN Red List Status:** "
-            f"{iucn['emoji']} :{color}[**{iucn['label']} ({iucn['category']})**] "
-            f"— *{iucn['scientific_name']}* (assessed {iucn['published_year']})"
+            f"{iucn['emoji']} :{color}[**{iucn['label']} "
+            f"({iucn['category']})**] "
+            f"— *{iucn['scientific_name']}* "
+            f"(assessed {iucn['published_year']})"
         )
 
     st.divider()
@@ -157,8 +163,8 @@ if "df" in st.session_state:
 
         st.subheader("Quality Issues Breakdown")
 
-        found_any = False
         issue_rows = []
+        found_any = False
 
         for check, stats in summary.items():
             if check not in skip:
@@ -171,7 +177,6 @@ if "df" in st.session_state:
                 if stats["count"] > 0:
                     found_any = True
 
-        import pandas as pd
         st.dataframe(
             pd.DataFrame(issue_rows),
             use_container_width=True,
@@ -183,11 +188,11 @@ if "df" in st.session_state:
 
         if "has_issues" in summary and summary["has_issues"]["count"] > 0:
             st.info(
-                f"ℹ️ {summary['has_issues']['count']} records carry GBIF internal flags. "
-                f"These are informational and do not affect the health score."
+                f"ℹ️ {summary['has_issues']['count']} records carry GBIF "
+                f"internal flags. These are informational and do not "
+                f"affect the health score."
             )
 
-        # basis of record summary
         if "basisOfRecord" in df.columns:
             st.subheader("Record Types")
             basis = df["basisOfRecord"].value_counts().reset_index()
@@ -197,11 +202,16 @@ if "df" in st.session_state:
     # ── TAB 2: Map ────────────────────────────────────────
     with tab2:
         st.subheader("Occurrence Map")
-        st.caption("🟢 Clean records   🔴 Flagged records — click any point for details")
-
-        with st.spinner("Rendering map..."):
-            m = build_map(df, flags)
-            st_folium(m, width=None, height=550, returned_objects=[])
+        st.caption(
+            "🟢 Clean records   🔴 Flagged records — "
+            "click any point for details"
+        )
+        try:
+            with st.spinner("Rendering map..."):
+                m = build_map(df, flags)
+                st_folium(m, width=None, height=550, returned_objects=[])
+        except Exception as e:
+            st.error(f"❌ Map failed to render: {str(e)}")
 
     # ── TAB 3: Charts ─────────────────────────────────────
     with tab3:
@@ -211,28 +221,37 @@ if "df" in st.session_state:
 
         with col1:
             fig_year = chart_records_per_year(df)
-            st.plotly_chart(fig_year, use_container_width=True)
+            if fig_year:
+                st.plotly_chart(fig_year, use_container_width=True)
+            else:
+                st.info("ℹ️ Not enough year data to plot.")
 
             fig_basis = chart_basis_of_record(df)
             if fig_basis:
                 st.plotly_chart(fig_basis, use_container_width=True)
+            else:
+                st.info("ℹ️ No basis of record data available.")
 
         with col2:
             fig_month = chart_records_per_month(df)
-            st.plotly_chart(fig_month, use_container_width=True)
+            if fig_month:
+                st.plotly_chart(fig_month, use_container_width=True)
+            else:
+                st.info("ℹ️ Not enough month data to plot.")
 
             fig_country = chart_top_countries(df)
             if fig_country:
                 st.plotly_chart(fig_country, use_container_width=True)
+            else:
+                st.info("ℹ️ No country data available.")
 
     # ── TAB 4: Data & Export ──────────────────────────────
     with tab4:
-        st.subheader("Full Dataset")
+        st.subheader("Download Data")
 
         col1, col2 = st.columns(2)
 
         with col1:
-            # download full data
             csv_full = df.to_csv(index=False).encode("utf-8")
             st.download_button(
                 label="⬇️ Download Full Data (CSV)",
@@ -243,7 +262,6 @@ if "df" in st.session_state:
             )
 
         with col2:
-            # download clean data only
             clean_df = df[~flags["any_flag"]].reset_index(drop=True)
             csv_clean = clean_df.to_csv(index=False).encode("utf-8")
             st.download_button(
@@ -254,7 +272,10 @@ if "df" in st.session_state:
                 use_container_width=True
             )
 
-        st.caption(f"Full data: {len(df)} records | Clean data: {len(clean_df)} records")
+        st.caption(
+            f"Full data: {len(df):,} records | "
+            f"Clean data: {len(clean_df):,} records"
+        )
 
         st.divider()
         st.subheader("Preview")

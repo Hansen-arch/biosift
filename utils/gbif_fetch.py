@@ -1,5 +1,7 @@
 from pygbif import occurrences as occ
 import pandas as pd
+import streamlit as st
+import time
 
 SAMPLE_SPECIES = {
     "🦁 African Lion": "Panthera leo",
@@ -9,30 +11,49 @@ SAMPLE_SPECIES = {
     "🐸 Poison Dart Frog": "Dendrobates auratus"
 }
 
+@st.cache_data(ttl=3600)
 def fetch_occurrences(species_name, limit=1000):
-    data = occ.search(
-        scientificName=species_name,
-        limit=limit,
-        hasCoordinate=True
-    )
+    retries = 3
 
-    results = data.get("results", [])
+    for attempt in range(retries):
+        try:
+            data = occ.search(
+                scientificName=species_name,
+                limit=limit,
+                hasCoordinate=True
+            )
 
-    if not results:
-        return None, 0
+            results = data.get("results", [])
 
-    df = pd.DataFrame(results)
+            if not results:
+                if attempt < retries - 1:
+                    time.sleep(0.5)
+                    continue
+                return None, 0, "No records found. Check species name spelling."
 
-    cols = [
-        "species", "country", "year", "month",
-        "decimalLatitude", "decimalLongitude",
-        "basisOfRecord", "issues", "datasetName",
-        "occurrenceID", "eventDate"
-    ]
+            if len(results) < 2:
+                return None, 0, "Not enough records to analyse. Try a different species."
 
-    cols = [c for c in cols if c in df.columns]
-    df = df[cols]
+            df = pd.DataFrame(results)
 
-    total = data.get("count", 0)
+            cols = [
+                "species", "country", "year", "month",
+                "decimalLatitude", "decimalLongitude",
+                "basisOfRecord", "issues", "datasetName",
+                "occurrenceID", "eventDate"
+            ]
 
-    return df, total
+            cols = [c for c in cols if c in df.columns]
+            df = df[cols]
+
+            total = data.get("count", 0)
+
+            return df, total, None
+
+        except Exception as e:
+            if attempt < retries - 1:
+                time.sleep(0.5)
+                continue
+            return None, 0, f"GBIF API error: {str(e)}"
+
+    return None, 0, "GBIF API not responding. Please try again."
