@@ -28,7 +28,7 @@ from utils.charts import (
 # ── page config ───────────────────────────────────────────
 st.set_page_config(
     page_title="BioSift",
-    page_icon="🌍",
+    page_icon="🌿",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -36,6 +36,40 @@ st.set_page_config(
 # ── CSS ───────────────────────────────────────────────────
 st.markdown("""
 <style>
+    /* ── mobile ── */
+    .mobile-notice {
+        display: none;
+        background: #2D1D10;
+        border: 1px solid #F0883E;
+        border-radius: 8px;
+        padding: 0.8rem 1rem;
+        font-size: 0.875rem;
+        color: #F0883E;
+        margin-bottom: 1rem;
+        text-align: center;
+    }
+    @media (max-width: 768px) {
+        .mobile-notice {
+            display: block;
+        }
+        .app-title {
+            font-size: 1.3rem;
+        }
+        .app-subtitle {
+            font-size: 0.8rem;
+        }
+        [data-testid="stMetricValue"] {
+            font-size: 1.2rem;
+        }
+        .health-score {
+            font-size: 1.5rem;
+        }
+        .temporal-stat-value {
+            font-size: 1.1rem;
+        }
+    }
+
+    /* ── global ── */
     html, body, [class*="css"] {
         font-family: 'Inter', 'Segoe UI', sans-serif;
     }
@@ -283,6 +317,14 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
+# ── mobile notice ─────────────────────────────────────────
+st.markdown("""
+<div class="mobile-notice">
+    📱 BioSift is optimised for desktop browsers.
+    For the best experience, please open on a laptop or desktop.
+</div>
+""", unsafe_allow_html=True)
+
 # ── sidebar ───────────────────────────────────────────────
 with st.sidebar:
     st.markdown('<p class="sidebar-label">Mode</p>', unsafe_allow_html=True)
@@ -390,15 +432,15 @@ if mode == "Species Analysis":
                 if error:
                     st.error(error)
                 else:
-                    st.session_state["df"]          = df
-                    st.session_state["total"]        = total
-                    st.session_state["species"]      = species_input
-                    st.session_state["flags"]        = run_quality_checks(df)
-                    st.session_state["summary"]      = quality_summary(
+                    st.session_state["df"]         = df
+                    st.session_state["total"]       = total
+                    st.session_state["species"]     = species_input
+                    st.session_state["flags"]       = run_quality_checks(df)
+                    st.session_state["summary"]     = quality_summary(
                         st.session_state["flags"]
                     )
-                    st.session_state["outliers"]     = detect_outliers(df)
-                    st.session_state["reliability"]  = compute_reliability_score(df)
+                    st.session_state["outliers"]    = detect_outliers(df)
+                    st.session_state["reliability"] = compute_reliability_score(df)
 
                     if iucn_key:
                         with st.spinner("Checking IUCN status..."):
@@ -504,7 +546,7 @@ if mode == "Species Analysis":
                     '<p class="section-header">Quality Issues</p>',
                     unsafe_allow_html=True
                 )
-                skip      = ["any_flag", "has_issues"]
+                skip       = ["any_flag", "has_issues"]
                 issue_rows = []
                 found_any  = False
 
