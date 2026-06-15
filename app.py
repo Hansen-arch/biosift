@@ -1,8 +1,10 @@
 import streamlit as st
 from streamlit_folium import st_folium
-from utils.gbif_fetch import fetch_occurrences
+import pandas as pd
+from utils.gbif_fetch import fetch_occurrences, SAMPLE_SPECIES
 from utils.quality import run_quality_checks, quality_summary
 from utils.maps import build_map
+from utils.iucn import get_iucn_status
 from utils.charts import (
     chart_records_per_year,
     chart_records_per_month,
@@ -10,39 +12,140 @@ from utils.charts import (
     chart_top_countries
 )
 
+# ── page config ──────────────────────────────────────────
+st.set_page_config(
+    page_title="GBIF QuickCheck",
+    page_icon="🌍",
+    layout="wide"
+)
+
+# ── header ────────────────────────────────────────────────
 st.title("🌍 GBIF QuickCheck")
-st.write("Instant biodiversity data diagnostics")
+st.markdown("**Instant biodiversity data quality diagnostics powered by GBIF**")
+st.divider()
 
-species = st.text_input("Enter species name", "Panthera leo")
-limit = st.slider("Max records", 100, 10000, 1000, step=100)
+# ── sidebar ───────────────────────────────────────────────
+with st.sidebar:
+    st.image("https://www.gbif.org/img/logo/GBIF-2015.png", width=150)
+    st.header("⚙️ Search Settings")
 
-if st.button("Search"):
-    with st.spinner("Fetching from GBIF..."):
-        df, total = fetch_occurrences(species, limit)
+    # sample species quick select
+    st.subheader("Quick Select")
+    sample_choice = st.selectbox(
+        "Load a sample species",
+        ["— select —"] + list(SAMPLE_SPECIES.keys())
+    )
 
-        if df is None:
-            st.error("No records found. Try another species name.")
-        else:
-            st.session_state["df"] = df
-            st.session_state["total"] = total
-            st.session_state["flags"] = run_quality_checks(df)
-            st.session_state["summary"] = quality_summary(st.session_state["flags"])
+    st.subheader("Custom Search")
+    species_input = st.text_input(
+        "Species name",
+        placeholder="e.g. Panthera leo"
+    )
 
+    # if sample selected, override input
+    if sample_choice != "— select —":
+        species_input = SAMPLE_SPECIES[sample_choice]
+        st.info(f"Using: *{species_input}*")
+
+    limit = st.slider("Max records to fetch", 100, 10000, 1000, step=100)
+
+    st.divider()
+
+    # IUCN key
+    st.subheader("🔴 IUCN Red List")
+    iucn_key = st.text_input(
+        "IUCN API Key (optional)",
+        type="password",
+        placeholder="Get free key at iucnredlist.org"
+    )
+    if not iucn_key:
+        st.caption("Without key, IUCN status won't show")
+
+    st.divider()
+
+    search_btn = st.button("🔍 Run Analysis", use_container_width=True)
+
+    st.divider()
+    st.caption("Built for the 2026 GBIF Ebbe Nielsen Challenge")
+    st.caption("Data source: [GBIF.org](https://www.gbif.org)")
+
+# ── search logic ──────────────────────────────────────────
+if search_btn:
+    if not species_input:
+        st.warning("Please enter a species name or select a sample.")
+    else:
+        with st.spinner(f"Fetching GBIF data for *{species_input}*..."):
+            df, total = fetch_occurrences(species_input, limit)
+
+            if df is None:
+                st.error("No records found. Check species name spelling.")
+            else:
+                st.session_state["df"] = df
+                st.session_state["total"] = total
+                st.session_state["species"] = species_input
+                st.session_state["flags"] = run_quality_checks(df)
+                st.session_state["summary"] = quality_summary(st.session_state["flags"])
+
+                # IUCN fetch
+                if iucn_key:
+                    with st.spinner("Fetching IUCN status..."):
+                        st.session_state["iucn"] = get_iucn_status(species_input, iucn_key)
+                else:
+                    st.session_state["iucn"] = None
+
+# ── results ───────────────────────────────────────────────
 if "df" in st.session_state:
-    df = st.session_state["df"]
-    total = st.session_state["total"]
-    flags = st.session_state["flags"]
+    df      = st.session_state["df"]
+    total   = st.session_state["total"]
+    flags   = st.session_state["flags"]
     summary = st.session_state["summary"]
+    species = st.session_state["species"]
+    iucn    = st.session_state.get("iucn")
 
-    tab1, tab2, tab3, tab4 = st.tabs(["📋 Overview", "🗺️ Map", "📊 Charts", "📦 Data"])
+    clean = len(flags) - int(summary["any_flag"]["count"])
+    score = round(clean / len(flags) * 100, 1)
 
+    # ── top metrics row ───────────────────────────────────
+    st.subheader(f"Results for *{species}*")
+
+    col1, col2, col3, col4 = st.columns(4)
+
+    with col1:
+        st.metric("Total GBIF Records", f"{total:,}")
+    with col2:
+        st.metric("Records Analysed", f"{len(df):,}")
+    with col3:
+        st.metric("Clean Records", f"{clean:,}")
+    with col4:
+        st.metric("Health Score", f"{score}%")
+
+    # IUCN badge
+    if iucn:
+        status_colors = {
+            "EX": "red", "EW": "red",
+            "CR": "red", "EN": "orange",
+            "VU": "orange", "NT": "green",
+            "LC": "green", "DD": "gray", "NE": "gray"
+        }
+        color = status_colors.get(iucn["category"], "gray")
+        st.markdown(
+            f"**IUCN Red List Status:** "
+            f"{iucn['emoji']} :{color}[**{iucn['label']} ({iucn['category']})**] "
+            f"— *{iucn['scientific_name']}* (assessed {iucn['published_year']})"
+        )
+
+    st.divider()
+
+    # ── tabs ──────────────────────────────────────────────
+    tab1, tab2, tab3, tab4 = st.tabs([
+        "📋 Overview",
+        "🗺️ Occurrence Map",
+        "📊 Charts",
+        "📦 Data & Export"
+    ])
+
+    # ── TAB 1: Overview ───────────────────────────────────
     with tab1:
-        st.subheader("Summary")
-        st.success(f"Showing {len(df)} of {total:,} total records")
-
-        clean = len(flags) - int(summary["any_flag"]["count"])
-        score = round(clean / len(flags) * 100, 1)
-
         if score >= 80:
             st.success(f"✅ Data Health Score: {score}% — Good")
         elif score >= 50:
@@ -52,27 +155,58 @@ if "df" in st.session_state:
 
         skip = ["any_flag", "has_issues"]
 
-        st.subheader("Quality Issues Found")
+        st.subheader("Quality Issues Breakdown")
+
         found_any = False
+        issue_rows = []
+
         for check, stats in summary.items():
-            if check not in skip and stats["count"] > 0:
-                st.write(f"⚠️ **{check}**: {stats['count']} records ({stats['percent']}%)")
-                found_any = True
+            if check not in skip:
+                issue_rows.append({
+                    "Check": check.replace("_", " ").title(),
+                    "Flagged Records": stats["count"],
+                    "Percentage": f"{stats['percent']}%",
+                    "Status": "⚠️ Issue" if stats["count"] > 0 else "✅ OK"
+                })
+                if stats["count"] > 0:
+                    found_any = True
+
+        import pandas as pd
+        st.dataframe(
+            pd.DataFrame(issue_rows),
+            use_container_width=True,
+            hide_index=True
+        )
 
         if not found_any:
-            st.write("✅ No major issues found!")
+            st.success("✅ No major quality issues found!")
 
         if "has_issues" in summary and summary["has_issues"]["count"] > 0:
-            st.info(f"ℹ️ {summary['has_issues']['count']} records have GBIF flags (informational only, does not affect health score)")
+            st.info(
+                f"ℹ️ {summary['has_issues']['count']} records carry GBIF internal flags. "
+                f"These are informational and do not affect the health score."
+            )
 
+        # basis of record summary
+        if "basisOfRecord" in df.columns:
+            st.subheader("Record Types")
+            basis = df["basisOfRecord"].value_counts().reset_index()
+            basis.columns = ["Basis of Record", "Count"]
+            st.dataframe(basis, use_container_width=True, hide_index=True)
+
+    # ── TAB 2: Map ────────────────────────────────────────
     with tab2:
         st.subheader("Occurrence Map")
-        st.caption("🟢 Clean records   🔴 Flagged records")
-        m = build_map(df, flags)
-        st_folium(m, width=700, height=500, returned_objects=[])
+        st.caption("🟢 Clean records   🔴 Flagged records — click any point for details")
 
+        with st.spinner("Rendering map..."):
+            m = build_map(df, flags)
+            st_folium(m, width=None, height=550, returned_objects=[])
+
+    # ── TAB 3: Charts ─────────────────────────────────────
     with tab3:
-        st.subheader("Charts")
+        st.subheader("Temporal & Geographic Analysis")
+
         col1, col2 = st.columns(2)
 
         with col1:
@@ -91,6 +225,37 @@ if "df" in st.session_state:
             if fig_country:
                 st.plotly_chart(fig_country, use_container_width=True)
 
+    # ── TAB 4: Data & Export ──────────────────────────────
     with tab4:
-        st.subheader("Raw Data")
-        st.dataframe(df)
+        st.subheader("Full Dataset")
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            # download full data
+            csv_full = df.to_csv(index=False).encode("utf-8")
+            st.download_button(
+                label="⬇️ Download Full Data (CSV)",
+                data=csv_full,
+                file_name=f"gbif_{species.replace(' ', '_')}_full.csv",
+                mime="text/csv",
+                use_container_width=True
+            )
+
+        with col2:
+            # download clean data only
+            clean_df = df[~flags["any_flag"]].reset_index(drop=True)
+            csv_clean = clean_df.to_csv(index=False).encode("utf-8")
+            st.download_button(
+                label="⬇️ Download Clean Records Only (CSV)",
+                data=csv_clean,
+                file_name=f"gbif_{species.replace(' ', '_')}_clean.csv",
+                mime="text/csv",
+                use_container_width=True
+            )
+
+        st.caption(f"Full data: {len(df)} records | Clean data: {len(clean_df)} records")
+
+        st.divider()
+        st.subheader("Preview")
+        st.dataframe(df, use_container_width=True)

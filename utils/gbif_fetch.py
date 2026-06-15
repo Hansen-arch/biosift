@@ -1,7 +1,15 @@
 from pygbif import occurrences as occ
 import pandas as pd
 
-def fetch_occurrences(species_name, limit=5000):
+SAMPLE_SPECIES = {
+    "🦁 African Lion": "Panthera leo",
+    "🦋 Monarch Butterfly": "Danaus plexippus",
+    "🐘 African Elephant": "Loxodonta africana",
+    "🦅 Bald Eagle": "Haliaeetus leucocephalus",
+    "🐸 Poison Dart Frog": "Dendrobates auratus"
+}
+
+def fetch_occurrences(species_name, limit=1000):
     data = occ.search(
         scientificName=species_name,
         limit=limit,
@@ -15,7 +23,6 @@ def fetch_occurrences(species_name, limit=5000):
 
     df = pd.DataFrame(results)
 
-    # keep only useful columns that exist
     cols = [
         "species", "country", "year", "month",
         "decimalLatitude", "decimalLongitude",
