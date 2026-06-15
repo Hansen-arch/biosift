@@ -160,7 +160,7 @@ def generate_methods_text(species, df, clean_df, summary, score):
         f"scientificName='{species}', hasCoordinate=TRUE. "
         f"A total of {total_gbif:,} georeferenced records were retrieved "
         f"and subjected to automated quality assessment using GBIF QuickCheck "
-        f"(github.com/yourusername/gbif-quickcheck). "
+        f"(github.com/Hansen-arch/biosift). "
         f"{removed_str} "
         f"The dataset achieved a data health score of {score}% based on "
         f"checks for duplicate records, coordinate validity, temporal "

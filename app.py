@@ -27,7 +27,7 @@ from utils.charts import (
 
 # ── page config ───────────────────────────────────────────
 st.set_page_config(
-    page_title="GBIF QuickCheck",
+    page_title="BioSift",
     page_icon="🌍",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -274,9 +274,9 @@ st.markdown("""
 # ── header ────────────────────────────────────────────────
 st.markdown("""
 <div class="app-header">
-    <p class="app-title">GBIF QuickCheck</p>
+    <p class="app-title">BioSift</p>
     <p class="app-subtitle">
-        Biodiversity data quality diagnostics powered by
+        Biodiversity data intelligence platform powered by
         GBIF & IUCN Red List
     </p>
     <span class="app-badge">Ebbe Nielsen Challenge 2026</span>
