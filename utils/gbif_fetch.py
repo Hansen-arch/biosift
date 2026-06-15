@@ -4,11 +4,11 @@ import streamlit as st
 import time
 
 SAMPLE_SPECIES = {
-    "🦁 African Lion": "Panthera leo",
-    "🦋 Monarch Butterfly": "Danaus plexippus",
-    "🐘 African Elephant": "Loxodonta africana",
-    "🦅 Bald Eagle": "Haliaeetus leucocephalus",
-    "🐸 Poison Dart Frog": "Dendrobates auratus"
+    "African Lion": "Panthera leo",
+    "Monarch Butterfly": "Danaus plexippus",
+    "African Elephant": "Loxodonta africana",
+    "Bald Eagle": "Haliaeetus leucocephalus",
+    "Poison Dart Frog": "Dendrobates auratus"
 }
 
 @st.cache_data(ttl=3600)
