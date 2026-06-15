@@ -227,16 +227,6 @@ st.markdown("""
         font-size: 0.75rem;
         font-weight: 600;
     }
-    .methods-box {
-        background: #161B22;
-        border: 1px solid #21262D;
-        border-radius: 8px;
-        padding: 1.2rem 1.5rem;
-        font-size: 0.85rem;
-        line-height: 1.7;
-        color: #C9D1D9;
-        font-style: italic;
-    }
     .map-legend {
         display: flex;
         gap: 1.5rem;
@@ -299,7 +289,6 @@ st.markdown("""
 # ── sidebar ───────────────────────────────────────────────
 with st.sidebar:
 
-    # mode switcher
     st.markdown('<p class="sidebar-label">Mode</p>', unsafe_allow_html=True)
     mode = st.radio(
         "",
@@ -339,9 +328,12 @@ with st.sidebar:
             unsafe_allow_html=True
         )
         limit = st.slider(
-            "", 100, 10000, 300, step=100,
+            "", 100, 10000, 500,
+            step=100,
             label_visibility="collapsed"
         )
+        if limit > 1000:
+            st.caption("⚠️ Large requests may take 30–60 seconds")
 
         st.divider()
 
@@ -406,15 +398,15 @@ if mode == "Species Analysis":
                 if error:
                     st.error(error)
                 else:
-                    st.session_state["df"]      = df
-                    st.session_state["total"]   = total
-                    st.session_state["species"] = species_input
-                    st.session_state["flags"]   = run_quality_checks(df)
-                    st.session_state["summary"] = quality_summary(
+                    st.session_state["df"]          = df
+                    st.session_state["total"]        = total
+                    st.session_state["species"]      = species_input
+                    st.session_state["flags"]        = run_quality_checks(df)
+                    st.session_state["summary"]      = quality_summary(
                         st.session_state["flags"]
                     )
-                    st.session_state["outliers"] = detect_outliers(df)
-                    st.session_state["reliability"] = compute_reliability_score(df)
+                    st.session_state["outliers"]     = detect_outliers(df)
+                    st.session_state["reliability"]  = compute_reliability_score(df)
 
                     if iucn_key:
                         with st.spinner("Checking IUCN status..."):
@@ -490,7 +482,6 @@ if mode == "Species Analysis":
             col_left, col_right = st.columns([1, 1])
 
             with col_left:
-                # health bar
                 if score >= 80:
                     h_class = "health-good"
                     b_class = "health-bar-good"
@@ -517,12 +508,12 @@ if mode == "Species Analysis":
                 </div>
                 """, unsafe_allow_html=True)
 
-                # quality issues
                 st.markdown(
                     '<p class="section-header">Quality Issues</p>',
                     unsafe_allow_html=True
                 )
-                skip = ["any_flag", "has_issues"]
+
+                skip      = ["any_flag", "has_issues"]
                 issue_rows = []
                 found_any  = False
 
@@ -532,8 +523,9 @@ if mode == "Species Analysis":
                             "Check"          : check.replace("_"," ").title(),
                             "Flagged Records": stats["count"],
                             "Percentage"     : f"{stats['percent']}%",
-                            "Status": "Issue Found" if stats["count"] > 0
-                                      else "OK"
+                            "Status"         : "Issue Found"
+                                               if stats["count"] > 0
+                                               else "OK"
                         })
                         if stats["count"] > 0:
                             found_any = True
@@ -554,7 +546,6 @@ if mode == "Species Analysis":
                         f"GBIF internal flags — informational only."
                     )
 
-                # outlier summary
                 if outliers is not None:
                     out_stats = outlier_summary(outliers)
                     st.markdown(
@@ -575,9 +566,8 @@ if mode == "Species Analysis":
                         )
 
             with col_right:
-                # data fitness
                 temporal_stats = get_temporal_stats(df)
-                fitness = get_data_fitness(score, summary, temporal_stats)
+                fitness        = get_data_fitness(score, summary, temporal_stats)
 
                 st.markdown(
                     '<p class="section-header">Data Fitness</p>',
@@ -588,7 +578,8 @@ if mode == "Species Analysis":
                     badge = (
                         '<span class="fitness-badge-yes">Suitable</span>'
                         if f["suitable"] else
-                        '<span class="fitness-badge-no">Not Recommended</span>'
+                        '<span class="fitness-badge-no">'
+                        'Not Recommended</span>'
                     )
                     st.markdown(f"""
                     <div class="fitness-row">
@@ -599,7 +590,6 @@ if mode == "Species Analysis":
 
                 st.markdown("<br>", unsafe_allow_html=True)
 
-                # coordinate precision
                 precision_stats = get_precision_stats(df)
                 if precision_stats:
                     st.markdown(
@@ -617,7 +607,6 @@ if mode == "Species Analysis":
                         hide_index=True
                     )
 
-                # record types
                 if "basisOfRecord" in df.columns:
                     st.markdown(
                         '<p class="section-header">Record Types</p>',
@@ -631,7 +620,6 @@ if mode == "Species Analysis":
                         hide_index=True
                     )
 
-            # recommendations full width
             recs = get_recommendations(summary, temporal_stats, df)
             st.markdown(
                 '<p class="section-header">Recommendations</p>',
@@ -672,7 +660,6 @@ if mode == "Species Analysis":
                     </span>
                 </div>
                 """, unsafe_allow_html=True)
-
                 try:
                     with st.spinner("Rendering map..."):
                         m = build_map(df, flags, map_type="points")
@@ -709,12 +696,8 @@ if mode == "Species Analysis":
                     </span>
                 </div>
                 """, unsafe_allow_html=True)
-
                 try:
                     import folium as fl
-                    from streamlit_folium import st_folium as stf
-                    import pandas as pd_
-
                     lat_c = df["decimalLatitude"].dropna().mean()
                     lon_c = df["decimalLongitude"].dropna().mean()
                     m_db  = fl.Map(
@@ -722,12 +705,11 @@ if mode == "Species Analysis":
                         zoom_start=4,
                         tiles="CartoDB dark_matter"
                     )
-
                     for idx, row in df.iterrows():
                         try:
                             lat = row.get("decimalLatitude")
                             lon = row.get("decimalLongitude")
-                            if pd_.isna(lat) or pd_.isna(lon):
+                            if pd.isna(lat) or pd.isna(lon):
                                 continue
                             is_out = (
                                 outliers.loc[idx]
@@ -744,13 +726,11 @@ if mode == "Species Analysis":
                             ).add_to(m_db)
                         except Exception:
                             continue
-
                     st_folium(
                         m_db, width=None,
                         height=560,
                         returned_objects=[]
                     )
-
                     if outliers is not None:
                         out_stats = outlier_summary(outliers)
                         st.info(
@@ -848,7 +828,8 @@ if mode == "Species Analysis":
                 )
 
                 insights = [
-                    f"Peak recording year was **{temporal_stats['peak_year']}**"
+                    f"Peak recording year was "
+                    f"**{temporal_stats['peak_year']}**"
                     f" with **{temporal_stats['peak_count']:,}** records.",
                     f"Recording trend is "
                     f"**{temporal_stats['trend']}** over time.",
@@ -924,11 +905,20 @@ if mode == "Species Analysis":
             if gap_stats:
                 g1, g2, g3 = st.columns(3)
                 with g1:
-                    st.metric("Grid Cells Covered", f"{gap_stats['covered']:,}")
+                    st.metric(
+                        "Grid Cells Covered",
+                        f"{gap_stats['covered']:,}"
+                    )
                 with g2:
-                    st.metric("Global Coverage", f"{gap_stats['cov_pct']}%")
+                    st.metric(
+                        "Global Coverage",
+                        f"{gap_stats['cov_pct']}%"
+                    )
                 with g3:
-                    st.metric("Countries", f"{gap_stats['countries']:,}")
+                    st.metric(
+                        "Countries",
+                        f"{gap_stats['countries']:,}"
+                    )
 
             with st.spinner("Building gap map..."):
                 gap_map = build_gap_map(df)
@@ -944,7 +934,6 @@ if mode == "Species Analysis":
         # ── TAB 6: Data & Export ──────────────────────────
         with tab6:
 
-            # reliability score
             if reliability is not None:
                 st.markdown(
                     '<p class="section-header">'
@@ -952,7 +941,7 @@ if mode == "Species Analysis":
                     unsafe_allow_html=True
                 )
 
-                avg_rel  = round(reliability.mean(), 1)
+                avg_rel          = round(reliability.mean(), 1)
                 rel_lab, rel_col = get_reliability_label(avg_rel)
 
                 r1, r2, r3 = st.columns(3)
@@ -974,7 +963,6 @@ if mode == "Species Analysis":
                     "Reliability Score", ascending=False
                 )
 
-            # before / after
             st.markdown(
                 '<p class="section-header">Before & After Cleaning</p>',
                 unsafe_allow_html=True
@@ -1007,12 +995,11 @@ if mode == "Species Analysis":
             removed = len(df) - clean
             st.caption(
                 f"{removed:,} records removed "
-                f"({round(removed/len(df)*100,1)}% of total)"
+                f"({round(removed / len(df) * 100, 1)}% of total)"
             )
 
             st.divider()
 
-            # downloads
             st.markdown(
                 '<p class="section-header">Download</p>',
                 unsafe_allow_html=True
@@ -1062,36 +1049,29 @@ if mode == "Species Analysis":
                     )
                     st.caption(f"{len(df):,} records + scores")
 
-            # methods generator
+            st.divider()
+
             st.markdown(
                 '<p class="section-header">'
                 'Reproducible Methods Paragraph</p>',
                 unsafe_allow_html=True
             )
             st.caption(
-                "Copy and paste directly into your research paper "
-                "methods section."
+                "Copy and paste directly into your "
+                "research paper methods section."
             )
 
             methods_text = generate_methods_text(
                 species, df, clean_df, summary, score
             )
 
-            st.markdown(
-                f'<div class="methods-box">{methods_text}</div>',
-                unsafe_allow_html=True
-            )
-            st.download_button(
-                label="Download Methods Text",
-                data=methods_text,
-                file_name=(
-                    f"methods_{species.replace(' ','_')}.txt"
-                ),
-                mime="text/plain",
-                use_container_width=False
+            st.text_area(
+                "",
+                value=methods_text,
+                height=200,
+                label_visibility="collapsed"
             )
 
-            # data preview
             st.divider()
             st.markdown(
                 '<p class="section-header">Preview</p>',
@@ -1108,12 +1088,14 @@ if mode == "Species Analysis":
 else:
     st.markdown("""
     <div style="margin-bottom:1.5rem">
-        <p style="font-size:1.1rem;font-weight:600;color:#F0F6FC;margin:0">
+        <p style="font-size:1.1rem;font-weight:600;
+                  color:#F0F6FC;margin:0">
             Publisher Report Card
         </p>
-        <p style="font-size:0.875rem;color:#8B949E;margin:0.3rem 0 0 0">
-            Assess the data quality and coverage of any GBIF
-            data publisher or institution
+        <p style="font-size:0.875rem;color:#8B949E;
+                  margin:0.3rem 0 0 0">
+            Assess the data quality and coverage of any
+            GBIF data publishing institution
         </p>
     </div>
     """, unsafe_allow_html=True)
@@ -1189,7 +1171,6 @@ else:
             hide_index=True
         )
 
-        # download report
         csv_pub = report["datasets"].to_csv(
             index=False
         ).encode("utf-8")
