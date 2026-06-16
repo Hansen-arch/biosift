@@ -1,6 +1,6 @@
 # 🌿 BioSift
 
-> Biodiversity data intelligence platform powered by GBIF & IUCN Red List
+> Biodiversity data intelligence platform powered by GBIF
 
 Built for the **2026 GBIF Ebbe Nielsen Challenge**
 
@@ -22,9 +22,10 @@ diagnostics across multiple quality dimensions — all in one place.
 
 GBIF aggregates hundreds of millions of occurrence records from thousands of
 data publishers worldwide. However, many records contain quality issues such
-as missing or zero coordinates, duplicate records, low coordinate precision,
-and temporal gaps. These issues directly affect the reliability of biodiversity
-analyses, species distribution models and conservation assessments.
+as missing or zero coordinates, coordinates outside the stated country,
+duplicate records, low coordinate precision and temporal gaps. These issues
+directly affect the reliability of biodiversity analyses, species distribution
+models and conservation assessments.
 
 BioSift makes it easy for anyone to assess, diagnose and clean occurrence
 data before using it in research or policy work.
@@ -34,9 +35,9 @@ data before using it in research or policy work.
 ## Who is it for?
 
 | User | How they benefit |
-|------|----------------|
+|---|---|
 | Researchers | Instantly assess data quality before analysis |
-| Conservationists | View IUCN status alongside spatial data gaps |
+| Conservationists | View spatial data gaps and reliability scores |
 | Data managers | Identify and fix issues in published datasets |
 | Policy makers | Understand data reliability for decision making |
 | Educators | Explore biodiversity data visually |
@@ -46,21 +47,42 @@ data before using it in research or policy work.
 ## Features
 
 ### Species Analysis Mode
+
+**Data Quality**
 - Data health score (0–100%) with visual progress bar
-- Six automated quality checks with detailed breakdown
-- Coordinate precision analysis (5 tiers)
+- Record completeness score — % of important fields filled per record
+- Eight automated quality checks with detailed breakdown:
+  - Missing coordinates
+  - Zero coordinates
+  - Missing year
+  - Pre-1900 records
+  - Missing event date
+  - Duplicate records
+  - Low coordinate precision
+  - Country coordinate mismatch (coordinates outside stated country boundary)
+- Coordinate precision analysis across 5 tiers (~10km to ~1m)
+- DBSCAN spatial outlier detection
+- Multimedia quality assessment (coverage % + broken URL detection)
+
+**Analysis**
 - Data fitness assessment for 5 scientific use cases
 - Automated recommendations engine
-- Interactive occurrence map (point map + heatmap)
-- DBSCAN spatial outlier detection
-- Species Distribution Model preview (Kernel Density Estimation)
-- Temporal analysis with trend detection and gap identification
-- Global data gap map (10° grid)
-- IUCN Red List conservation status integration
 - Per-record reliability scoring (0–100)
+- Temporal analysis with trend detection and gap identification
+- Observation density chart — country contribution as % of total
+
+**Mapping**
+- Interactive point map (green = clean, red = flagged)
+- Heatmap
+- DBSCAN outlier map
+- Species Distribution Model preview (Kernel Density Estimation)
+- Global data gap map (10° grid cells)
+
+**Export & Reproducibility**
 - Before & after cleaning comparison
-- Three CSV export options (full, clean, scored)
-- Reproducible methods paragraph generator
+- Three CSV export options (full dataset, clean records, scored records)
+- Reproducible methods paragraph — publication-ready, copy-paste ready
+- GBIF dataset citation generator (APA and BibTeX formats)
 
 ### Publisher Report Card Mode
 - Search any GBIF data publishing institution by name
@@ -73,7 +95,7 @@ data before using it in research or policy work.
 
 ## Live Demo
 
-👉 [Open BioSift](#) ← Streamlit URL coming soon
+👉 [Open BioSift on Streamlit Cloud](https://biosift.streamlit.app)
 
 ---
 
@@ -105,42 +127,37 @@ Usage
 Species Analysis
 
     Enter a species scientific name (e.g. Panthera leo) or select a sample
-    Set maximum records to fetch (default: 500)
-    Optionally enter your IUCN API key for conservation status
+    Set optional year range and basis of record filters
+    Set maximum records to fetch (default: 500, max: 10,000)
     Click Run Analysis
-    Explore 6 tabs: Overview, Map, Temporal, Charts, Gap Analysis, Export
+    Explore 6 tabs: Overview · Occurrence Map · Temporal Analysis · Charts · Gap Analysis · Data & Export
 
 Publisher Report Card
 
-    Switch mode to Publisher Report Card in sidebar
-    Enter institution name (e.g. iNaturalist)
+    Switch mode to Publisher Report Card in the sidebar
+    Enter an institution name (e.g. iNaturalist)
     Click Get Report Card
     Select publisher from results
     Click Load Report
 
-IUCN Red List Integration
+Project Structure
 
-BioSift can display IUCN Red List conservation status alongside occurrence data. To enable:
-
-    Get a free API key at https://apiv3.iucnredlist.org/api/v3/token
-    Enter the key in the sidebar under IUCN API Key
-    Conservation status badge appears above the metrics
+text
 
 biosift/
 ├── app.py                  ← main Streamlit app
 ├── utils/
 │   ├── gbif_fetch.py       ← GBIF API calls with pagination and caching
-│   ├── quality.py          ← data quality checks and precision analysis
+│   ├── quality.py          ← quality checks, completeness score, country mismatch
 │   ├── maps.py             ← interactive occurrence maps and heatmap
-│   ├── charts.py           ← temporal and geographic charts
+│   ├── charts.py           ← temporal, geographic and density charts
 │   ├── outliers.py         ← DBSCAN spatial outlier detection
 │   ├── sdm.py              ← species distribution model preview
-│   ├── reliability.py      ← record reliability scoring and methods generator
+│   ├── reliability.py      ← reliability scoring, methods generator, citation generator
 │   ├── gaps.py             ← global data gap grid map
-│   ├── publisher.py        ← publisher report card
-│   └── iucn.py             ← IUCN Red List integration
+│   └── publisher.py        ← publisher report card
 ├── .streamlit/
-│   └── config.toml         ← app theme
+│   └── config.toml         ← dark theme config
 ├── requirements.txt
 ├── LICENSE
 └── README.md
@@ -148,7 +165,6 @@ biosift/
 Data Sources
 
     Occurrence data: GBIF.org — Global Biodiversity Information Facility
-    Conservation status: IUCN Red List
 
 All data accessed through free, open public APIs. No data is stored or redistributed by this tool.
 Tech Stack
@@ -161,7 +177,8 @@ folium	Interactive maps
 plotly	Interactive charts
 scikit-learn	DBSCAN outlier detection
 scipy	Kernel density estimation
-requests	IUCN & publisher API calls
+numpy	Numerical computation
+requests	API calls
 License
 
 MIT License — see LICENSE for details.
@@ -170,6 +187,6 @@ Author
 Reihan Apriandi · github.com/Hansen-arch
 Built for
 
-2026 GBIF Ebbe Nielsen Challenge
+2026 GBIF Ebbe Nielsen Challenge gbif.org/news/3DyM3tK5wgYipqyaHwG2c2
 
 Advancing open science through better biodiversity data intelligence.
