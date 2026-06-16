@@ -75,9 +75,9 @@ def get_reliability_label(score):
 def get_data_fitness(score, summary, temporal_stats):
     suitability = []
 
-    dup_pct   = summary.get("duplicate",      {}).get("percent", 0)
-    coord_pct = summary.get("missing_coords", {}).get("percent", 0)
-    prec_pct  = summary.get("low_precision",  {}).get("percent", 0)
+    dup_pct    = summary.get("duplicate",      {}).get("percent", 0)
+    coord_pct  = summary.get("missing_coords", {}).get("percent", 0)
+    prec_pct   = summary.get("low_precision",  {}).get("percent", 0)
     gap_count  = temporal_stats.get("gap_count",  0) if temporal_stats else 0
     recent_pct = temporal_stats.get("recent_pct", 0) if temporal_stats else 0
 
@@ -87,7 +87,8 @@ def get_data_fitness(score, summary, temporal_stats):
         "suitable": sdm_ok,
         "reason"  : "Good coordinate quality and health score"
                     if sdm_ok else
-                    "High missing/low-precision coordinates reduce SDM reliability"
+                    "High missing or low-precision coordinates "
+                    "reduce SDM reliability"
     })
 
     temp_ok = gap_count < 20 and recent_pct >= 10
@@ -159,7 +160,7 @@ def generate_methods_text(species, df, clean_df, summary, score):
         f"using the GBIF Occurrence Search API with parameters: "
         f"scientificName='{species}', hasCoordinate=TRUE. "
         f"A total of {total_gbif:,} georeferenced records were retrieved "
-        f"and subjected to automated quality assessment using GBIF QuickCheck "
+        f"and subjected to automated quality assessment using BioSift "
         f"(github.com/Hansen-arch/biosift). "
         f"{removed_str} "
         f"The dataset achieved a data health score of {score}% based on "

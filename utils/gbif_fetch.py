@@ -15,7 +15,8 @@ COLS = [
     "species", "country", "year", "month",
     "decimalLatitude", "decimalLongitude",
     "basisOfRecord", "issues", "datasetName",
-    "occurrenceID", "eventDate", "countryCode"
+    "occurrenceID", "eventDate", "countryCode",
+    "media"
 ]
 
 MAX_PER_REQUEST = 300
@@ -84,7 +85,10 @@ def fetch_occurrences(
                 break
 
         if not all_results:
-            return None, 0, "No records found. Check species name or adjust filters."
+            return (
+                None, 0,
+                "No records found. Check species name or adjust filters."
+            )
 
         if len(all_results) < 2:
             return None, 0, "Not enough records to analyse."

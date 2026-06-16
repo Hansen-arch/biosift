@@ -45,16 +45,21 @@ def build_map(df, flags, map_type="points"):
                     continue
 
                 is_flagged = flags.loc[idx, "any_flag"]
-                color = "#F85149" if is_flagged else "#3FB950"
+                color      = "#F85149" if is_flagged else "#3FB950"
+                status     = "Flagged" if is_flagged else "Clean"
 
                 popup_text = f"""
-                <div style="font-family:sans-serif;font-size:12px;min-width:150px">
-                <b>{row.get('species', 'Unknown')}</b><br>
-                <span style="color:#888">Country:</span> {row.get('country', 'N/A')}<br>
-                <span style="color:#888">Year:</span> {row.get('year', 'N/A')}<br>
-                <span style="color:#888">Basis:</span> {row.get('basisOfRecord', 'N/A')}<br>
-                <span style="color:#888">Status:</span>
-                {'⚠️ Flagged' if is_flagged else '✅ Clean'}
+                <div style="font-family:sans-serif;font-size:12px;
+                            min-width:150px">
+                    <b>{row.get('species', 'Unknown')}</b><br>
+                    <span style="color:#888">Country:</span>
+                    {row.get('country', 'N/A')}<br>
+                    <span style="color:#888">Year:</span>
+                    {row.get('year', 'N/A')}<br>
+                    <span style="color:#888">Basis:</span>
+                    {row.get('basisOfRecord', 'N/A')}<br>
+                    <span style="color:#888">Status:</span>
+                    {status}
                 </div>
                 """
 

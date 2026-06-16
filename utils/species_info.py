@@ -6,7 +6,6 @@ GBIF_API = "https://api.gbif.org/v1"
 @st.cache_data(ttl=3600)
 def get_species_info(scientific_name):
     try:
-        # get species key
         url    = f"{GBIF_API}/species/match"
         params = {"name": scientific_name, "verbose": True}
         r      = requests.get(url, params=params, timeout=10)
@@ -19,11 +18,9 @@ def get_species_info(scientific_name):
         if not key:
             return None
 
-        # get full species info
         r2   = requests.get(f"{GBIF_API}/species/{key}", timeout=10)
         info = r2.json()
 
-        # get vernacular names
         r3       = requests.get(
             f"{GBIF_API}/species/{key}/vernacularNames",
             params={"limit": 10},
@@ -41,7 +38,6 @@ def get_species_info(scientific_name):
             elif name and not common_names:
                 common_names.append(name)
 
-        # get image
         r4     = requests.get(
             f"{GBIF_API}/occurrence/search",
             params={
@@ -51,7 +47,7 @@ def get_species_info(scientific_name):
             },
             timeout=10
         )
-        occ_data = r4.json()
+        occ_data  = r4.json()
         image_url = None
 
         for occ in occ_data.get("results", []):
@@ -64,61 +60,21 @@ def get_species_info(scientific_name):
                 break
 
         return {
-            "key"           : key,
+            "key"            : key,
             "scientific_name": info.get("canonicalName", scientific_name),
-            "kingdom"       : info.get("kingdom",  ""),
-            "phylum"        : info.get("phylum",   ""),
-            "class_"        : info.get("class",    ""),
-            "order"         : info.get("order",    ""),
-            "family"        : info.get("family",   ""),
-            "genus"         : info.get("genus",    ""),
-            "species"       : info.get("species",  scientific_name),
-            "rank"          : info.get("rank",     ""),
-            "status"        : info.get("taxonomicStatus", ""),
-            "common_names"  : list(dict.fromkeys(common_names))[:3],
-            "image_url"     : image_url,
-            "gbif_url"      : f"https://www.gbif.org/species/{key}"
+            "kingdom"        : info.get("kingdom",  ""),
+            "phylum"         : info.get("phylum",   ""),
+            "class_"         : info.get("class",    ""),
+            "order"          : info.get("order",    ""),
+            "family"         : info.get("family",   ""),
+            "genus"          : info.get("genus",    ""),
+            "species"        : info.get("species",  scientific_name),
+            "rank"           : info.get("rank",     ""),
+            "status"         : info.get("taxonomicStatus", ""),
+            "common_names"   : list(dict.fromkeys(common_names))[:3],
+            "image_url"      : image_url,
+            "gbif_url"       : f"https://www.gbif.org/species/{key}"
         }
 
     except Exception:
         return None
-
-
-@st.cache_data(ttl=3600)
-def search_species_names(query):
-    try:
-        url    = f"{GBIF_API}/species/suggest"
-        params = {"q": query, "limit": 8}
-        r      = requests.get(url, params=params, timeout=10)
-        data   = r.json()
-
-        suggestions = []
-        for item in data:
-            sci    = item.get("canonicalName", "")
-            rank   = item.get("rank", "")
-            kingdom = item.get("kingdom", "")
-
-            if not sci:
-                continue
-            if rank not in ["SPECIES", "SUBSPECIES", "VARIETY"]:
-                continue
-
-            # get vernacular
-            vern = item.get("vernacularName", "")
-
-            label = sci
-            if vern:
-                label = f"{vern} ({sci})"
-
-            suggestions.append({
-                "label"     : label,
-                "scientific": sci,
-                "common"    : vern,
-                "rank"      : rank,
-                "kingdom"   : kingdom
-            })
-
-        return suggestions
-
-    except Exception:
-        return []
