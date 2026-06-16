@@ -1,8 +1,9 @@
 import streamlit as st
 from streamlit_folium import st_folium
 import pandas as pd
+import requests
 from utils.gbif_fetch    import fetch_occurrences, SAMPLE_SPECIES
-from utils.species_info  import get_species_info, search_species_names
+from utils.species_info  import get_species_info
 from utils.quality       import (
     run_quality_checks,
     quality_summary,
@@ -21,7 +22,7 @@ from utils.reliability   import (
 )
 from utils.gaps          import build_gap_map, get_gap_stats
 from utils.publisher     import search_publisher, build_publisher_report
-from utils.charts import (
+from utils.charts        import (
     chart_records_per_year,
     chart_records_per_month,
     chart_basis_of_record,
@@ -295,7 +296,7 @@ st.markdown("""
     <p class="app-title">BioSift</p>
     <p class="app-subtitle">
         Biodiversity data intelligence platform powered by
-        GBIF & IUCN Red List
+        GBIF &amp; IUCN Red List
     </p>
     <span class="app-badge">Ebbe Nielsen Challenge 2026</span>
 </div>
@@ -303,10 +304,59 @@ st.markdown("""
 
 st.markdown("""
 <div class="mobile-notice">
-    📱 BioSift is optimised for desktop browsers.
+    BioSift is optimised for desktop browsers.
     For the best experience, please open on a laptop or desktop.
 </div>
 """, unsafe_allow_html=True)
+
+
+# ── helper: clear session state ───────────────────────────
+def clear_results():
+    for key in [
+        "df", "total", "species", "flags",
+        "summary", "outliers", "reliability",
+        "iucn", "species_info", "multimedia"
+    ]:
+        st.session_state.pop(key, None)
+
+
+# ── helper: clean df for CSV export ──────────────────────
+def prepare_export_df(df):
+    """
+    Returns a clean copy of df safe for CSV export:
+    - Extracts first image URL from media column into image_url column
+    - Drops raw media column
+    - Converts issues list to readable semicolon-separated string
+    """
+    export = df.copy()
+
+    # extract first image URL from media before dropping
+    if "media" in export.columns:
+        def extract_image_url(media_list):
+            if isinstance(media_list, list):
+                for item in media_list:
+                    if isinstance(item, dict):
+                        url = item.get("identifier", "")
+                        if url and url.startswith("http"):
+                            return url
+            return ""
+        export.insert(
+            export.columns.get_loc("media"),
+            "image_url",
+            export["media"].apply(extract_image_url)
+        )
+        export = export.drop(columns=["media"])
+
+    # clean issues list to readable string
+    if "issues" in export.columns:
+        def clean_issues(x):
+            if isinstance(x, list) and len(x) > 0:
+                return "; ".join(str(i) for i in x)
+            return ""
+        export["issues"] = export["issues"].apply(clean_issues)
+
+    return export
+
 
 # ── sidebar ───────────────────────────────────────────────
 with st.sidebar:
@@ -324,50 +374,34 @@ with st.sidebar:
             '<p class="sidebar-label">Quick Select</p>',
             unsafe_allow_html=True
         )
+        sample_options = (
+            ["— select a sample —"] + list(SAMPLE_SPECIES.values())
+        )
         sample_choice = st.selectbox(
             "",
-            ["— select a sample —"] + list(SAMPLE_SPECIES.keys()),
+            sample_options,
             label_visibility="collapsed"
         )
 
         st.markdown(
-            '<p class="sidebar-label">Search Species</p>',
+            '<p class="sidebar-label">Species Name</p>',
             unsafe_allow_html=True
         )
-        search_query = st.text_input(
+        st.caption(
+            "Enter the scientific name of the species. "
+            "Example: Panthera leo, Danaus plexippus. "
+            "Data sourced from GBIF occurrence records only."
+        )
+        species_input_raw = st.text_input(
             "",
-            placeholder="Common or scientific name e.g. lion",
+            placeholder="e.g. Panthera leo",
             label_visibility="collapsed"
         )
 
-        species_input = ""
-
-        if search_query:
-            with st.spinner("Searching..."):
-                suggestions = search_species_names(search_query)
-            if suggestions:
-                options  = ["— select species —"] + [
-                    s["label"] for s in suggestions
-                ]
-                selected = st.selectbox(
-                    "",
-                    options,
-                    label_visibility="collapsed",
-                    key="species_suggest"
-                )
-                if selected != "— select species —":
-                    matched = next(
-                        (s for s in suggestions if s["label"] == selected),
-                        None
-                    )
-                    if matched:
-                        species_input = matched["scientific"]
-                        st.caption(f"*{species_input}*")
-            else:
-                st.caption("No matches found. Try a different name.")
+        species_input = species_input_raw.strip()
 
         if sample_choice != "— select a sample —" and not species_input:
-            species_input = SAMPLE_SPECIES[sample_choice]
+            species_input = sample_choice
             st.caption(f"Using sample: *{species_input}*")
 
         st.divider()
@@ -451,12 +485,7 @@ with st.sidebar:
 
         if "df" in st.session_state:
             if st.button("Clear Results", use_container_width=True):
-                for key in [
-                    "df", "total", "species", "flags",
-                    "summary", "outliers", "reliability",
-                    "iucn", "species_info", "multimedia"
-                ]:
-                    st.session_state.pop(key, None)
+                clear_results()
                 st.rerun()
 
     else:
@@ -489,9 +518,39 @@ if mode == "Species Analysis":
 
     if search_btn:
         if not species_input:
-            st.warning("Please enter a species name or select a sample.")
+            st.warning(
+                "Please enter a scientific name or select a sample."
+            )
         else:
             progress_bar = st.progress(0, text="Connecting to GBIF...")
+
+            # ── pre-flight check ──────────────────────────
+            try:
+                pre_check = requests.get(
+                    "https://api.gbif.org/v1/occurrence/search",
+                    params={
+                        "scientificName": species_input,
+                        "limit"         : 1
+                    },
+                    timeout=10
+                ).json()
+                pre_count = pre_check.get("count", 0)
+
+                if pre_count == 0:
+                    progress_bar.empty()
+                    clear_results()
+                    st.error(
+                        f"No occurrence records found for "
+                        f"*{species_input}* in GBIF. "
+                        f"The species may exist in the taxonomy database "
+                        f"but has no recorded observations. "
+                        f"Please check the spelling or try a different "
+                        f"species name."
+                    )
+                    st.stop()
+
+            except Exception:
+                pass
 
             df, total, error = fetch_occurrences(
                 species_name = species_input,
@@ -503,6 +562,7 @@ if mode == "Species Analysis":
 
             if error:
                 progress_bar.empty()
+                clear_results()
                 st.error(error)
             else:
                 progress_bar.progress(0.5, text="Running quality checks...")
@@ -523,10 +583,12 @@ if mode == "Species Analysis":
                 st.session_state["reliability"] = compute_reliability_score(df)
 
                 progress_bar.progress(0.85, text="Fetching species info...")
-                st.session_state["species_info"] = get_species_info(species_input)
+                st.session_state["species_info"] = get_species_info(
+                    species_input
+                )
 
                 progress_bar.progress(0.95, text="Checking multimedia...")
-                st.session_state["multimedia"] = get_multimedia_stats(df)
+                st.session_state["multimedia"]  = get_multimedia_stats(df)
 
                 progress_bar.progress(1.0, text="Done!")
                 progress_bar.empty()
@@ -627,7 +689,7 @@ if mode == "Species Analysis":
 
                 if species_info.get("gbif_url"):
                     st.markdown(
-                        f'[View on GBIF ↗]({species_info["gbif_url"]})'
+                        f'[View on GBIF]({species_info["gbif_url"]})'
                     )
 
         else:
@@ -647,7 +709,7 @@ if mode == "Species Analysis":
                     unsafe_allow_html=True
                 )
 
-        # filter notice
+        # ── filter notice ─────────────────────────────────
         filter_parts = []
         if yr_from != 1900 or yr_to != 2026:
             filter_parts.append(f"Year: {yr_from}–{yr_to}")
@@ -671,6 +733,10 @@ if mode == "Species Analysis":
             st.metric("Health Score", f"{score}%")
 
         st.divider()
+
+        # ── init map_type before tabs to prevent flicker ──
+        if "map_type" not in st.session_state:
+            st.session_state["map_type"] = "Point Map"
 
         # ── tabs ──────────────────────────────────────────
         tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
@@ -772,7 +838,6 @@ if mode == "Species Analysis":
                         "geographic distribution of the fetched sample."
                     )
 
-                # multimedia quality
                 st.markdown(
                     '<p class="section-header">Multimedia Quality</p>',
                     unsafe_allow_html=True
@@ -903,7 +968,8 @@ if mode == "Species Analysis":
             map_type = st.radio(
                 "Map type",
                 ["Point Map", "Heatmap", "DBSCAN Outliers", "SDM Preview"],
-                horizontal=True
+                horizontal=True,
+                key="map_type"
             )
 
             if map_type == "Point Map":
@@ -922,7 +988,11 @@ if mode == "Species Analysis":
                 try:
                     with st.spinner("Rendering map..."):
                         m = build_map(df, flags, map_type="points")
-                        st_folium(m, width=None, height=560, returned_objects=[])
+                        st_folium(
+                            m, width=None,
+                            height=560,
+                            returned_objects=[]
+                        )
                 except Exception as e:
                     st.error(f"Map error: {str(e)}")
 
@@ -930,7 +1000,11 @@ if mode == "Species Analysis":
                 try:
                     with st.spinner("Rendering heatmap..."):
                         m = build_map(df, flags, map_type="heatmap")
-                        st_folium(m, width=None, height=560, returned_objects=[])
+                        st_folium(
+                            m, width=None,
+                            height=560,
+                            returned_objects=[]
+                        )
                 except Exception as e:
                     st.error(f"Map error: {str(e)}")
 
@@ -978,7 +1052,11 @@ if mode == "Species Analysis":
                         except Exception:
                             continue
 
-                    st_folium(m_db, width=None, height=560, returned_objects=[])
+                    st_folium(
+                        m_db, width=None,
+                        height=560,
+                        returned_objects=[]
+                    )
 
                     if outliers is not None:
                         out_stats = outlier_summary(outliers)
@@ -1154,7 +1232,7 @@ if mode == "Species Analysis":
             st.caption(
                 "Green = data rich · Yellow = sparse · "
                 "Orange = very sparse · Red = no data. "
-                "Grid resolution: 10° cells."
+                "Grid resolution: 10 degree cells."
             )
 
             gap_stats = get_gap_stats(df)
@@ -1260,25 +1338,31 @@ if mode == "Species Analysis":
                 '<p class="section-header">Download</p>',
                 unsafe_allow_html=True
             )
+            st.caption(
+                "Exported files include a clean image_url column "
+                "extracted from GBIF media data, and GBIF issue flags "
+                "as readable text."
+            )
+
+            export_full  = prepare_export_df(df)
+            export_clean = prepare_export_df(clean_df)
 
             col1, col2, col3 = st.columns(3)
             with col1:
-                csv_full = df.to_csv(index=False).encode("utf-8")
                 st.download_button(
                     label="Download Full Dataset",
-                    data=csv_full,
-                    file_name=f"gbif_{species.replace(' ','_')}_full.csv",
+                    data=export_full.to_csv(index=False).encode("utf-8"),
+                    file_name=f"biosift_{species.replace(' ','_')}_full.csv",
                     mime="text/csv",
                     use_container_width=True
                 )
                 st.caption(f"{len(df):,} records")
 
             with col2:
-                csv_clean = clean_df.to_csv(index=False).encode("utf-8")
                 st.download_button(
                     label="Download Clean Records",
-                    data=csv_clean,
-                    file_name=f"gbif_{species.replace(' ','_')}_clean.csv",
+                    data=export_clean.to_csv(index=False).encode("utf-8"),
+                    file_name=f"biosift_{species.replace(' ','_')}_clean.csv",
                     mime="text/csv",
                     use_container_width=True
                 )
@@ -1286,14 +1370,14 @@ if mode == "Species Analysis":
 
             with col3:
                 if reliability is not None:
-                    csv_rel = df_with_rel.to_csv(
-                        index=False
-                    ).encode("utf-8")
+                    export_scored = prepare_export_df(df_with_rel)
                     st.download_button(
                         label="Download With Reliability Scores",
-                        data=csv_rel,
+                        data=export_scored.to_csv(
+                            index=False
+                        ).encode("utf-8"),
                         file_name=(
-                            f"gbif_{species.replace(' ','_')}_scored.csv"
+                            f"biosift_{species.replace(' ','_')}_scored.csv"
                         ),
                         mime="text/csv",
                         use_container_width=True
@@ -1329,9 +1413,15 @@ if mode == "Species Analysis":
                 unsafe_allow_html=True
             )
             if reliability is not None:
-                st.dataframe(df_with_rel, use_container_width=True)
+                st.dataframe(
+                    prepare_export_df(df_with_rel),
+                    use_container_width=True
+                )
             else:
-                st.dataframe(df, use_container_width=True)
+                st.dataframe(
+                    prepare_export_df(df),
+                    use_container_width=True
+                )
 
 # ══════════════════════════════════════════════════════════
 # MODE: PUBLISHER REPORT CARD
@@ -1427,7 +1517,7 @@ else:
             label="Download Publisher Report (CSV)",
             data=csv_pub,
             file_name=(
-                f"gbif_publisher_"
+                f"biosift_publisher_"
                 f"{report['publisher'].replace(' ','_')}.csv"
             ),
             mime="text/csv"
