@@ -2,31 +2,33 @@ import streamlit as st
 from streamlit_folium import st_folium
 import pandas as pd
 import requests
-from utils.gbif_fetch    import fetch_occurrences, SAMPLE_SPECIES
-from utils.species_info  import get_species_info
-from utils.quality       import (
+from utils.gbif_fetch  import fetch_occurrences, SAMPLE_SPECIES
+from utils.species_info import get_species_info
+from utils.quality      import (
     run_quality_checks,
     quality_summary,
     get_precision_stats,
-    get_multimedia_stats
+    get_multimedia_stats,
+    get_completeness_score
 )
-from utils.maps          import build_map
-from utils.iucn          import get_iucn_status
-from utils.outliers      import detect_outliers, outlier_summary
-from utils.sdm           import build_sdm_map
-from utils.reliability   import (
+from utils.maps         import build_map
+from utils.outliers     import detect_outliers, outlier_summary
+from utils.sdm          import build_sdm_map
+from utils.reliability  import (
     compute_reliability_score,
     get_reliability_label,
     get_data_fitness,
-    generate_methods_text
+    generate_methods_text,
+    generate_citation
 )
-from utils.gaps          import build_gap_map, get_gap_stats
-from utils.publisher     import search_publisher, build_publisher_report
-from utils.charts        import (
+from utils.gaps         import build_gap_map, get_gap_stats
+from utils.publisher    import search_publisher, build_publisher_report
+from utils.charts       import (
     chart_records_per_year,
     chart_records_per_month,
     chart_basis_of_record,
     chart_top_countries,
+    chart_country_density,
     chart_decade_breakdown,
     get_temporal_stats,
     get_recommendations
@@ -131,23 +133,6 @@ st.markdown("""
         padding-bottom: 0.4rem;
         border-bottom: 1px solid #21262D;
     }
-    .iucn-badge {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.4rem;
-        padding: 0.3rem 0.8rem;
-        border-radius: 20px;
-        font-size: 0.8rem;
-        font-weight: 600;
-        margin-top: 0.5rem;
-    }
-    .iucn-cr{background:#2D1515;color:#F85149;border:1px solid #F85149;}
-    .iucn-en{background:#2D1D10;color:#F0883E;border:1px solid #F0883E;}
-    .iucn-vu{background:#2D270A;color:#E3B341;border:1px solid #E3B341;}
-    .iucn-lc{background:#1F2D1F;color:#3FB950;border:1px solid #3FB950;}
-    .iucn-nt{background:#1F2D1F;color:#3FB950;border:1px solid #3FB950;}
-    .iucn-dd{background:#1C2128;color:#8B949E;border:1px solid #8B949E;}
-    .iucn-ex{background:#1C2128;color:#8B949E;border:1px solid #8B949E;}
     .health-bar-wrap {
         background: #161B22;
         border: 1px solid #21262D;
@@ -168,9 +153,9 @@ st.markdown("""
         font-weight: 700;
         margin-bottom: 0.4rem;
     }
-    .health-good{color:#3FB950;}
-    .health-fair{color:#E3B341;}
-    .health-poor{color:#F85149;}
+    .health-good  { color: #3FB950; }
+    .health-fair  { color: #E3B341; }
+    .health-poor  { color: #F85149; }
     .health-bar-bg {
         background: #21262D;
         border-radius: 999px;
@@ -178,10 +163,17 @@ st.markdown("""
         width: 100%;
         overflow: hidden;
     }
-    .health-bar-fill { height:6px; border-radius:999px; }
-    .health-bar-good{background:#3FB950;}
-    .health-bar-fair{background:#E3B341;}
-    .health-bar-poor{background:#F85149;}
+    .health-bar-fill  { height: 6px; border-radius: 999px; }
+    .health-bar-good  { background: #3FB950; }
+    .health-bar-fair  { background: #E3B341; }
+    .health-bar-poor  { background: #F85149; }
+    .completeness-bar-wrap {
+        background: #161B22;
+        border: 1px solid #21262D;
+        border-radius: 10px;
+        padding: 1.2rem 1.5rem;
+        margin-bottom: 1.25rem;
+    }
     .rec-card {
         padding: 0.85rem 1rem;
         border-radius: 8px;
@@ -189,11 +181,11 @@ st.markdown("""
         font-size: 0.875rem;
         line-height: 1.5;
     }
-    .rec-warning{background:#2D1D10;border-left:3px solid #F0883E;}
-    .rec-info{background:#0D1926;border-left:3px solid #58A6FF;}
-    .rec-success{background:#1F2D1F;border-left:3px solid #3FB950;}
-    .rec-title{font-weight:600;margin-bottom:0.2rem;color:#F0F6FC;}
-    .rec-msg{color:#8B949E;}
+    .rec-warning { background: #2D1D10; border-left: 3px solid #F0883E; }
+    .rec-info    { background: #0D1926; border-left: 3px solid #58A6FF; }
+    .rec-success { background: #1F2D1F; border-left: 3px solid #3FB950; }
+    .rec-title   { font-weight: 600; margin-bottom: 0.2rem; color: #F0F6FC; }
+    .rec-msg     { color: #8B949E; }
     .temporal-stat-box {
         background: #161B22;
         border: 1px solid #21262D;
@@ -229,63 +221,58 @@ st.markdown("""
         font-size: 0.875rem;
     }
     .fitness-badge-yes {
-        background: #1F2D1F;
-        color: #3FB950;
-        border: 1px solid #3FB950;
-        border-radius: 12px;
-        padding: 0.15rem 0.6rem;
-        font-size: 0.75rem;
-        font-weight: 600;
+        background: #1F2D1F; color: #3FB950;
+        border: 1px solid #3FB950; border-radius: 12px;
+        padding: 0.15rem 0.6rem; font-size: 0.75rem; font-weight: 600;
     }
     .fitness-badge-no {
-        background: #2D1515;
-        color: #F85149;
-        border: 1px solid #F85149;
-        border-radius: 12px;
-        padding: 0.15rem 0.6rem;
-        font-size: 0.75rem;
-        font-weight: 600;
+        background: #2D1515; color: #F85149;
+        border: 1px solid #F85149; border-radius: 12px;
+        padding: 0.15rem 0.6rem; font-size: 0.75rem; font-weight: 600;
     }
     .map-legend {
-        display: flex;
-        gap: 1.5rem;
+        display: flex; gap: 1.5rem;
         margin-bottom: 0.75rem;
-        font-size: 0.8rem;
-        color: #8B949E;
+        font-size: 0.8rem; color: #8B949E;
     }
     .legend-dot {
-        display: inline-block;
-        width: 10px;
-        height: 10px;
-        border-radius: 50%;
-        margin-right: 4px;
-        vertical-align: middle;
+        display: inline-block; width: 10px; height: 10px;
+        border-radius: 50%; margin-right: 4px; vertical-align: middle;
     }
-    .dot-green{background:#3FB950;}
-    .dot-red{background:#F85149;}
-    .dot-orange{background:#F0883E;}
+    .dot-green  { background: #3FB950; }
+    .dot-red    { background: #F85149; }
+    .dot-orange { background: #F0883E; }
     .sidebar-label {
-        font-size: 0.75rem;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        color: #8B949E;
-        margin-bottom: 0.25rem;
+        font-size: 0.75rem; font-weight: 600;
+        text-transform: uppercase; letter-spacing: 0.5px;
+        color: #8B949E; margin-bottom: 0.25rem;
     }
     .pub-card {
+        background: #161B22; border: 1px solid #21262D;
+        border-radius: 10px; padding: 1.2rem 1.5rem;
+        margin-bottom: 1rem;
+    }
+    .pub-title {
+        font-size: 1.1rem; font-weight: 600;
+        color: #F0F6FC; margin-bottom: 0.5rem;
+    }
+    .pub-stat { font-size: 0.875rem; color: #8B949E; }
+    .citation-box {
         background: #161B22;
         border: 1px solid #21262D;
         border-radius: 10px;
         padding: 1.2rem 1.5rem;
         margin-bottom: 1rem;
     }
-    .pub-title {
-        font-size: 1.1rem;
-        font-weight: 600;
-        color: #F0F6FC;
-        margin-bottom: 0.5rem;
+    .citation-note {
+        background: #0D1926;
+        border-left: 3px solid #58A6FF;
+        border-radius: 4px;
+        padding: 0.75rem 1rem;
+        font-size: 0.8rem;
+        color: #8B949E;
+        margin-top: 0.75rem;
     }
-    .pub-stat { font-size: 0.875rem; color: #8B949E; }
     hr { border-color: #21262D; margin: 1rem 0; }
 </style>
 """, unsafe_allow_html=True)
@@ -295,8 +282,7 @@ st.markdown("""
 <div class="app-header">
     <p class="app-title">BioSift</p>
     <p class="app-subtitle">
-        Biodiversity data intelligence platform powered by
-        GBIF &amp; IUCN Red List
+        Biodiversity data intelligence platform powered by GBIF
     </p>
     <span class="app-badge">Ebbe Nielsen Challenge 2026</span>
 </div>
@@ -315,22 +301,15 @@ def clear_results():
     for key in [
         "df", "total", "species", "flags",
         "summary", "outliers", "reliability",
-        "iucn", "species_info", "multimedia"
+        "species_info", "multimedia", "completeness"
     ]:
         st.session_state.pop(key, None)
 
 
 # ── helper: clean df for CSV export ──────────────────────
 def prepare_export_df(df):
-    """
-    Returns a clean copy of df safe for CSV export:
-    - Extracts first image URL from media column into image_url column
-    - Drops raw media column
-    - Converts issues list to readable semicolon-separated string
-    """
     export = df.copy()
 
-    # extract first image URL from media before dropping
     if "media" in export.columns:
         def extract_image_url(media_list):
             if isinstance(media_list, list):
@@ -347,7 +326,6 @@ def prepare_export_df(df):
         )
         export = export.drop(columns=["media"])
 
-    # clean issues list to readable string
     if "issues" in export.columns:
         def clean_issues(x):
             if isinstance(x, list) and len(x) > 0:
@@ -360,7 +338,10 @@ def prepare_export_df(df):
 
 # ── sidebar ───────────────────────────────────────────────
 with st.sidebar:
-    st.markdown('<p class="sidebar-label">Mode</p>', unsafe_allow_html=True)
+    st.markdown(
+        '<p class="sidebar-label">Mode</p>',
+        unsafe_allow_html=True
+    )
     mode = st.radio(
         "",
         ["Species Analysis", "Publisher Report Card"],
@@ -415,28 +396,20 @@ with st.sidebar:
         with col_y1:
             year_from = st.number_input(
                 "Year from",
-                min_value=1000,
-                max_value=2026,
-                value=1900,
-                step=1
+                min_value=1000, max_value=2026,
+                value=1900, step=1
             )
         with col_y2:
             year_to = st.number_input(
                 "Year to",
-                min_value=1000,
-                max_value=2026,
-                value=2026,
-                step=1
+                min_value=1000, max_value=2026,
+                value=2026, step=1
             )
 
         basis_options = [
-            "All",
-            "HUMAN_OBSERVATION",
-            "PRESERVED_SPECIMEN",
-            "MACHINE_OBSERVATION",
-            "LIVING_SPECIMEN",
-            "LITERATURE",
-            "FOSSIL_SPECIMEN"
+            "All", "HUMAN_OBSERVATION", "PRESERVED_SPECIMEN",
+            "MACHINE_OBSERVATION", "LIVING_SPECIMEN",
+            "LITERATURE", "FOSSIL_SPECIMEN"
         ]
         st.markdown(
             '<p class="sidebar-label">Basis of Record</p>',
@@ -456,23 +429,6 @@ with st.sidebar:
             "", 100, 10000, 500,
             step=100,
             label_visibility="collapsed"
-        )
-
-        st.divider()
-
-        st.markdown(
-            '<p class="sidebar-label">IUCN API Key</p>',
-            unsafe_allow_html=True
-        )
-        iucn_key = st.text_input(
-            "",
-            type="password",
-            placeholder="Optional",
-            label_visibility="collapsed"
-        )
-        st.caption(
-            "Get free key at "
-            "[iucnredlist.org](https://apiv3.iucnredlist.org/api/v3/token)"
         )
 
         st.divider()
@@ -506,10 +462,8 @@ with st.sidebar:
         )
 
     st.divider()
-    st.caption(
-        "Data: [GBIF.org](https://www.gbif.org) · "
-        "[IUCN](https://iucnredlist.org)"
-    )
+    st.caption("Data: [GBIF.org](https://www.gbif.org)")
+
 
 # ══════════════════════════════════════════════════════════
 # MODE: SPECIES ANALYSIS
@@ -528,10 +482,7 @@ if mode == "Species Analysis":
             try:
                 pre_check = requests.get(
                     "https://api.gbif.org/v1/occurrence/search",
-                    params={
-                        "scientificName": species_input,
-                        "limit"         : 1
-                    },
+                    params={"scientificName": species_input, "limit": 1},
                     timeout=10
                 ).json()
                 pre_count = pre_check.get("count", 0)
@@ -567,20 +518,21 @@ if mode == "Species Analysis":
             else:
                 progress_bar.progress(0.5, text="Running quality checks...")
 
-                st.session_state["df"]          = df
-                st.session_state["total"]        = total
-                st.session_state["species"]      = species_input
-                st.session_state["year_from"]    = int(year_from)
-                st.session_state["year_to"]      = int(year_to)
-                st.session_state["basis_filter"] = basis_filter
-                st.session_state["flags"]        = run_quality_checks(df)
-                st.session_state["summary"]      = quality_summary(
+                st.session_state["df"]           = df
+                st.session_state["total"]         = total
+                st.session_state["species"]       = species_input
+                st.session_state["year_from"]     = int(year_from)
+                st.session_state["year_to"]       = int(year_to)
+                st.session_state["basis_filter"]  = basis_filter
+                st.session_state["flags"]         = run_quality_checks(df)
+                st.session_state["summary"]       = quality_summary(
                     st.session_state["flags"]
                 )
+                st.session_state["completeness"]  = get_completeness_score(df)
 
                 progress_bar.progress(0.7, text="Detecting outliers...")
-                st.session_state["outliers"]    = detect_outliers(df)
-                st.session_state["reliability"] = compute_reliability_score(df)
+                st.session_state["outliers"]     = detect_outliers(df)
+                st.session_state["reliability"]  = compute_reliability_score(df)
 
                 progress_bar.progress(0.85, text="Fetching species info...")
                 st.session_state["species_info"] = get_species_info(
@@ -588,21 +540,10 @@ if mode == "Species Analysis":
                 )
 
                 progress_bar.progress(0.95, text="Checking multimedia...")
-                st.session_state["multimedia"]  = get_multimedia_stats(df)
+                st.session_state["multimedia"]   = get_multimedia_stats(df)
 
                 progress_bar.progress(1.0, text="Done!")
                 progress_bar.empty()
-
-                if iucn_key:
-                    with st.spinner("Checking IUCN status..."):
-                        iucn = get_iucn_status(species_input, iucn_key)
-                        if iucn is None:
-                            st.warning(
-                                "IUCN status not found for this species."
-                            )
-                        st.session_state["iucn"] = iucn
-                else:
-                    st.session_state["iucn"] = None
 
     if "df" in st.session_state and mode == "Species Analysis":
         df           = st.session_state["df"]
@@ -610,11 +551,11 @@ if mode == "Species Analysis":
         flags        = st.session_state["flags"]
         summary      = st.session_state["summary"]
         species      = st.session_state["species"]
-        iucn         = st.session_state.get("iucn")
         outliers     = st.session_state.get("outliers")
         reliability  = st.session_state.get("reliability")
         species_info = st.session_state.get("species_info")
         multimedia   = st.session_state.get("multimedia")
+        completeness = st.session_state.get("completeness")
         yr_from      = st.session_state.get("year_from",    1900)
         yr_to        = st.session_state.get("year_to",      2026)
         basis_used   = st.session_state.get("basis_filter", "All")
@@ -672,21 +613,6 @@ if mode == "Species Analysis":
                             unsafe_allow_html=True
                         )
 
-                if iucn:
-                    cat = iucn["category"]
-                    css_class = {
-                        "CR":"iucn-cr","EN":"iucn-en","VU":"iucn-vu",
-                        "NT":"iucn-lc","LC":"iucn-lc","DD":"iucn-dd",
-                        "EX":"iucn-ex","EW":"iucn-ex","NE":"iucn-dd"
-                    }.get(cat, "iucn-dd")
-                    st.markdown(
-                        f'<span class="iucn-badge {css_class}">'
-                        f'{iucn["emoji"]} {iucn["label"]} ({cat})'
-                        f' · Assessed {iucn["published_year"]}'
-                        f'</span>',
-                        unsafe_allow_html=True
-                    )
-
                 if species_info.get("gbif_url"):
                     st.markdown(
                         f'[View on GBIF]({species_info["gbif_url"]})'
@@ -694,20 +620,6 @@ if mode == "Species Analysis":
 
         else:
             st.markdown(f"### *{species}*")
-            if iucn:
-                cat = iucn["category"]
-                css_class = {
-                    "CR":"iucn-cr","EN":"iucn-en","VU":"iucn-vu",
-                    "NT":"iucn-lc","LC":"iucn-lc","DD":"iucn-dd",
-                    "EX":"iucn-ex","EW":"iucn-ex","NE":"iucn-dd"
-                }.get(cat, "iucn-dd")
-                st.markdown(
-                    f'<span class="iucn-badge {css_class}">'
-                    f'{iucn["emoji"]} {iucn["label"]} ({cat})'
-                    f' · Assessed {iucn["published_year"]}'
-                    f'</span>',
-                    unsafe_allow_html=True
-                )
 
         # ── filter notice ─────────────────────────────────
         filter_parts = []
@@ -726,15 +638,15 @@ if mode == "Species Analysis":
         with col1:
             st.metric("Total GBIF Records", f"{total:,}")
         with col2:
-            st.metric("Records Analysed", f"{len(df):,}")
+            st.metric("Records Analysed",   f"{len(df):,}")
         with col3:
-            st.metric("Clean Records", f"{clean:,}")
+            st.metric("Clean Records",       f"{clean:,}")
         with col4:
-            st.metric("Health Score", f"{score}%")
+            st.metric("Health Score",        f"{score}%")
 
         st.divider()
 
-        # ── init map_type before tabs to prevent flicker ──
+        # ── init map_type before tabs ─────────────────────
         if "map_type" not in st.session_state:
             st.session_state["map_type"] = "Point Map"
 
@@ -748,11 +660,14 @@ if mode == "Species Analysis":
             "Data & Export"
         ])
 
-        # ── TAB 1: Overview ───────────────────────────────
+        # ══════════════════════════════════════════════════
+        # TAB 1 — Overview
+        # ══════════════════════════════════════════════════
         with tab1:
             col_left, col_right = st.columns([1, 1])
 
             with col_left:
+                # ── health score bar ──────────────────────
                 if score >= 80:
                     h_class = "health-good"
                     b_class = "health-bar-good"
@@ -779,6 +694,63 @@ if mode == "Species Analysis":
                 </div>
                 """, unsafe_allow_html=True)
 
+                # ── completeness score bar ────────────────
+                if completeness:
+                    cs = completeness["avg_score"]
+                    if cs >= 80:
+                        cc_class = "health-good"
+                        cb_class = "health-bar-good"
+                    elif cs >= 50:
+                        cc_class = "health-fair"
+                        cb_class = "health-bar-fair"
+                    else:
+                        cc_class = "health-poor"
+                        cb_class = "health-bar-poor"
+
+                    st.markdown(f"""
+                    <div class="completeness-bar-wrap">
+                        <div class="health-label">
+                            Record Completeness Score
+                        </div>
+                        <div class="health-score {cc_class}">
+                            {cs}%
+                        </div>
+                        <div class="health-bar-bg">
+                            <div class="health-bar-fill {cb_class}"
+                                 style="width:{cs}%"></div>
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                    cm1, cm2, cm3 = st.columns(3)
+                    with cm1:
+                        st.metric(
+                            "Fully Complete",
+                            f"{completeness['full_count']:,}"
+                        )
+                    with cm2:
+                        st.metric(
+                            "High Completeness (80%+)",
+                            f"{completeness['high_count']:,}"
+                        )
+                    with cm3:
+                        st.metric(
+                            "Low Completeness (<50%)",
+                            f"{completeness['low_count']:,}"
+                        )
+
+                    with st.expander("Field-level Completeness"):
+                        field_rows = [
+                            {"Field": k, "Fill Rate": f"{v}%"}
+                            for k, v in completeness["field_fill"].items()
+                        ]
+                        st.dataframe(
+                            pd.DataFrame(field_rows),
+                            use_container_width=True,
+                            hide_index=True
+                        )
+
+                # ── quality issues table ──────────────────
                 st.markdown(
                     '<p class="section-header">Quality Issues</p>',
                     unsafe_allow_html=True
@@ -790,11 +762,14 @@ if mode == "Species Analysis":
                 for check, stats in summary.items():
                     if check not in skip:
                         issue_rows.append({
-                            "Check"          : check.replace("_"," ").title(),
+                            "Check"          : check.replace(
+                                "_", " "
+                            ).title(),
                             "Flagged Records": stats["count"],
                             "Percentage"     : f"{stats['percent']}%",
                             "Status"         : "Issue Found"
-                                               if stats["count"] > 0 else "OK"
+                                               if stats["count"] > 0
+                                               else "OK"
                         })
                         if stats["count"] > 0:
                             found_any = True
@@ -815,6 +790,7 @@ if mode == "Species Analysis":
                         f"GBIF internal flags — informational only."
                     )
 
+                # ── DBSCAN outliers ───────────────────────
                 if outliers is not None:
                     out_stats = outlier_summary(outliers)
                     st.markdown(
@@ -838,6 +814,7 @@ if mode == "Species Analysis":
                         "geographic distribution of the fetched sample."
                     )
 
+                # ── multimedia quality ────────────────────
                 st.markdown(
                     '<p class="section-header">Multimedia Quality</p>',
                     unsafe_allow_html=True
@@ -885,12 +862,17 @@ if mode == "Species Analysis":
                             f"{multimedia['sample_checked']} image URLs."
                         )
                 else:
-                    st.info("Multimedia data not available for this dataset.")
+                    st.info(
+                        "Multimedia data not available for this dataset."
+                    )
 
             with col_right:
                 temporal_stats = get_temporal_stats(df)
-                fitness        = get_data_fitness(score, summary, temporal_stats)
+                fitness        = get_data_fitness(
+                    score, summary, temporal_stats
+                )
 
+                # ── data fitness ──────────────────────────
                 st.markdown(
                     '<p class="section-header">Data Fitness</p>',
                     unsafe_allow_html=True
@@ -903,7 +885,8 @@ if mode == "Species Analysis":
                     badge = (
                         '<span class="fitness-badge-yes">Suitable</span>'
                         if f["suitable"] else
-                        '<span class="fitness-badge-no">Not Recommended</span>'
+                        '<span class="fitness-badge-no">'
+                        'Not Recommended</span>'
                     )
                     st.markdown(f"""
                     <div class="fitness-row">
@@ -914,6 +897,7 @@ if mode == "Species Analysis":
 
                 st.markdown("<br>", unsafe_allow_html=True)
 
+                # ── coordinate precision ──────────────────
                 precision_stats = get_precision_stats(df)
                 if precision_stats:
                     st.markdown(
@@ -931,12 +915,17 @@ if mode == "Species Analysis":
                         hide_index=True
                     )
 
+                # ── record types ──────────────────────────
                 if "basisOfRecord" in df.columns:
                     st.markdown(
                         '<p class="section-header">Record Types</p>',
                         unsafe_allow_html=True
                     )
-                    basis = df["basisOfRecord"].value_counts().reset_index()
+                    basis = (
+                        df["basisOfRecord"]
+                        .value_counts()
+                        .reset_index()
+                    )
                     basis.columns = ["Basis of Record", "Count"]
                     st.dataframe(
                         basis,
@@ -944,6 +933,7 @@ if mode == "Species Analysis":
                         hide_index=True
                     )
 
+            # ── recommendations ───────────────────────────
             recs = get_recommendations(summary, temporal_stats, df)
             st.markdown(
                 '<p class="section-header">Recommendations</p>',
@@ -958,7 +948,9 @@ if mode == "Species Analysis":
                 </div>
                 """, unsafe_allow_html=True)
 
-        # ── TAB 2: Map ────────────────────────────────────
+        # ══════════════════════════════════════════════════
+        # TAB 2 — Occurrence Map
+        # ══════════════════════════════════════════════════
         with tab2:
             st.markdown(
                 '<p class="section-header">Occurrence Map</p>',
@@ -989,8 +981,7 @@ if mode == "Species Analysis":
                     with st.spinner("Rendering map..."):
                         m = build_map(df, flags, map_type="points")
                         st_folium(
-                            m, width=None,
-                            height=560,
+                            m, width=None, height=560,
                             returned_objects=[]
                         )
                 except Exception as e:
@@ -1001,8 +992,7 @@ if mode == "Species Analysis":
                     with st.spinner("Rendering heatmap..."):
                         m = build_map(df, flags, map_type="heatmap")
                         st_folium(
-                            m, width=None,
-                            height=560,
+                            m, width=None, height=560,
                             returned_objects=[]
                         )
                 except Exception as e:
@@ -1053,8 +1043,7 @@ if mode == "Species Analysis":
                             continue
 
                     st_folium(
-                        m_db, width=None,
-                        height=560,
+                        m_db, width=None, height=560,
                         returned_objects=[]
                     )
 
@@ -1080,12 +1069,13 @@ if mode == "Species Analysis":
                         st.error(sdm_error)
                     else:
                         st_folium(
-                            sdm_map, width=None,
-                            height=560,
+                            sdm_map, width=None, height=560,
                             returned_objects=[]
                         )
 
-        # ── TAB 3: Temporal Analysis ──────────────────────
+        # ══════════════════════════════════════════════════
+        # TAB 3 — Temporal Analysis
+        # ══════════════════════════════════════════════════
         with tab3:
             st.markdown(
                 '<p class="section-header">Temporal Overview</p>',
@@ -1108,7 +1098,9 @@ if mode == "Species Analysis":
                         <div class="temporal-stat-value">
                             {temporal_stats['first_year']}
                         </div>
-                        <div class="temporal-stat-label">First Record</div>
+                        <div class="temporal-stat-label">
+                            First Record
+                        </div>
                     </div>""", unsafe_allow_html=True)
                 with c2:
                     st.markdown(f"""
@@ -1116,7 +1108,9 @@ if mode == "Species Analysis":
                         <div class="temporal-stat-value">
                             {temporal_stats['last_year']}
                         </div>
-                        <div class="temporal-stat-label">Latest Record</div>
+                        <div class="temporal-stat-label">
+                            Latest Record
+                        </div>
                     </div>""", unsafe_allow_html=True)
                 with c3:
                     st.markdown(f"""
@@ -1124,7 +1118,9 @@ if mode == "Species Analysis":
                         <div class="temporal-stat-value">
                             {temporal_stats['span_years']}
                         </div>
-                        <div class="temporal-stat-label">Year Span</div>
+                        <div class="temporal-stat-label">
+                            Year Span
+                        </div>
                     </div>""", unsafe_allow_html=True)
                 with c4:
                     st.markdown(f"""
@@ -1143,7 +1139,9 @@ if mode == "Species Analysis":
                 with col1:
                     fig_year = chart_records_per_year(df)
                     if fig_year:
-                        st.plotly_chart(fig_year, use_container_width=True)
+                        st.plotly_chart(
+                            fig_year, use_container_width=True
+                        )
                     else:
                         st.info(
                             "Not enough yearly data to plot. "
@@ -1152,7 +1150,9 @@ if mode == "Species Analysis":
                 with col2:
                     fig_decade = chart_decade_breakdown(df)
                     if fig_decade:
-                        st.plotly_chart(fig_decade, use_container_width=True)
+                        st.plotly_chart(
+                            fig_decade, use_container_width=True
+                        )
 
                 st.markdown(
                     '<p class="section-header">Temporal Insights</p>',
@@ -1194,7 +1194,9 @@ if mode == "Species Analysis":
                     "Try widening your year range filter."
                 )
 
-        # ── TAB 4: Charts ─────────────────────────────────
+        # ══════════════════════════════════════════════════
+        # TAB 4 — Charts
+        # ══════════════════════════════════════════════════
         with tab4:
             st.markdown(
                 '<p class="section-header">'
@@ -1202,28 +1204,45 @@ if mode == "Species Analysis":
                 unsafe_allow_html=True
             )
 
+            # ── observation density chart (new) ───────────
+            fig_density = chart_country_density(df)
+            if fig_density:
+                st.plotly_chart(fig_density, use_container_width=True)
+            else:
+                st.info("No country data for density chart.")
+
+            st.divider()
+
             col1, col2 = st.columns(2)
             with col1:
                 fig_month = chart_records_per_month(df)
                 if fig_month:
-                    st.plotly_chart(fig_month, use_container_width=True)
+                    st.plotly_chart(
+                        fig_month, use_container_width=True
+                    )
                 else:
                     st.info("Not enough month data.")
 
                 fig_basis = chart_basis_of_record(df)
                 if fig_basis:
-                    st.plotly_chart(fig_basis, use_container_width=True)
+                    st.plotly_chart(
+                        fig_basis, use_container_width=True
+                    )
                 else:
                     st.info("No basis of record data.")
 
             with col2:
                 fig_country = chart_top_countries(df)
                 if fig_country:
-                    st.plotly_chart(fig_country, use_container_width=True)
+                    st.plotly_chart(
+                        fig_country, use_container_width=True
+                    )
                 else:
                     st.info("No country data.")
 
-        # ── TAB 5: Gap Analysis ───────────────────────────
+        # ══════════════════════════════════════════════════
+        # TAB 5 — Gap Analysis
+        # ══════════════════════════════════════════════════
         with tab5:
             st.markdown(
                 '<p class="section-header">Global Data Gap Map</p>',
@@ -1259,16 +1278,18 @@ if mode == "Species Analysis":
                 gap_map = build_gap_map(df)
                 if gap_map:
                     st_folium(
-                        gap_map, width=None,
-                        height=560,
+                        gap_map, width=None, height=560,
                         returned_objects=[]
                     )
                 else:
                     st.error("Could not build gap map.")
 
-        # ── TAB 6: Data & Export ──────────────────────────
+        # ══════════════════════════════════════════════════
+        # TAB 6 — Data & Export
+        # ══════════════════════════════════════════════════
         with tab6:
 
+            # ── reliability scores ────────────────────────
             if reliability is not None:
                 st.markdown(
                     '<p class="section-header">'
@@ -1297,6 +1318,7 @@ if mode == "Species Analysis":
                     "Reliability Score", ascending=False
                 )
 
+            # ── before / after cleaning ───────────────────
             st.markdown(
                 '<p class="section-header">Before & After Cleaning</p>',
                 unsafe_allow_html=True
@@ -1334,6 +1356,7 @@ if mode == "Species Analysis":
 
             st.divider()
 
+            # ── downloads ─────────────────────────────────
             st.markdown(
                 '<p class="section-header">Download</p>',
                 unsafe_allow_html=True
@@ -1351,8 +1374,13 @@ if mode == "Species Analysis":
             with col1:
                 st.download_button(
                     label="Download Full Dataset",
-                    data=export_full.to_csv(index=False).encode("utf-8"),
-                    file_name=f"biosift_{species.replace(' ','_')}_full.csv",
+                    data=export_full.to_csv(
+                        index=False
+                    ).encode("utf-8"),
+                    file_name=(
+                        f"biosift_"
+                        f"{species.replace(' ','_')}_full.csv"
+                    ),
                     mime="text/csv",
                     use_container_width=True
                 )
@@ -1361,8 +1389,13 @@ if mode == "Species Analysis":
             with col2:
                 st.download_button(
                     label="Download Clean Records",
-                    data=export_clean.to_csv(index=False).encode("utf-8"),
-                    file_name=f"biosift_{species.replace(' ','_')}_clean.csv",
+                    data=export_clean.to_csv(
+                        index=False
+                    ).encode("utf-8"),
+                    file_name=(
+                        f"biosift_"
+                        f"{species.replace(' ','_')}_clean.csv"
+                    ),
                     mime="text/csv",
                     use_container_width=True
                 )
@@ -1377,7 +1410,8 @@ if mode == "Species Analysis":
                             index=False
                         ).encode("utf-8"),
                         file_name=(
-                            f"biosift_{species.replace(' ','_')}_scored.csv"
+                            f"biosift_"
+                            f"{species.replace(' ','_')}_scored.csv"
                         ),
                         mime="text/csv",
                         use_container_width=True
@@ -1386,6 +1420,7 @@ if mode == "Species Analysis":
 
             st.divider()
 
+            # ── methods paragraph ─────────────────────────
             st.markdown(
                 '<p class="section-header">'
                 'Reproducible Methods Paragraph</p>',
@@ -1399,7 +1434,6 @@ if mode == "Species Analysis":
             methods_text = generate_methods_text(
                 species, df, clean_df, summary, score
             )
-
             st.text_area(
                 "",
                 value=methods_text,
@@ -1408,6 +1442,58 @@ if mode == "Species Analysis":
             )
 
             st.divider()
+
+            # ── citation generator (new) ──────────────────
+            st.markdown(
+                '<p class="section-header">'
+                'GBIF Dataset Citation</p>',
+                unsafe_allow_html=True
+            )
+            st.caption(
+                "Use these citations to properly attribute GBIF data "
+                "in your research. For a permanent DOI, download your "
+                "dataset directly from GBIF (see note below)."
+            )
+
+            citation = generate_citation(
+                species, df,
+                species_info=st.session_state.get("species_info")
+            )
+
+            cite_tab1, cite_tab2 = st.tabs(["APA", "BibTeX"])
+
+            with cite_tab1:
+                st.text_area(
+                    "",
+                    value=citation["apa"],
+                    height=120,
+                    label_visibility="collapsed",
+                    key="citation_apa"
+                )
+
+            with cite_tab2:
+                st.text_area(
+                    "",
+                    value=citation["bibtex"],
+                    height=180,
+                    label_visibility="collapsed",
+                    key="citation_bibtex"
+                )
+
+            st.markdown(f"""
+            <div class="citation-note">
+                {citation['note']}
+                &nbsp;<a href="{citation['search_url']}"
+                         target="_blank"
+                         style="color:#58A6FF">
+                    View on GBIF
+                </a>
+            </div>
+            """, unsafe_allow_html=True)
+
+            st.divider()
+
+            # ── data preview ──────────────────────────────
             st.markdown(
                 '<p class="section-header">Preview</p>',
                 unsafe_allow_html=True
@@ -1422,6 +1508,7 @@ if mode == "Species Analysis":
                     prepare_export_df(df),
                     use_container_width=True
                 )
+
 
 # ══════════════════════════════════════════════════════════
 # MODE: PUBLISHER REPORT CARD
@@ -1451,12 +1538,17 @@ else:
                 if error:
                     st.error(error)
                 elif not publishers:
-                    st.error("No publisher found. Try a different name.")
+                    st.error(
+                        "No publisher found. Try a different name."
+                    )
                 else:
                     st.session_state["publishers"] = publishers
                     st.session_state["pub_input"]  = publisher_input
 
-    if "publishers" in st.session_state and mode == "Publisher Report Card":
+    if (
+        "publishers" in st.session_state
+        and mode == "Publisher Report Card"
+    ):
         publishers = st.session_state["publishers"]
 
         st.markdown(
@@ -1489,7 +1581,10 @@ else:
                 else:
                     st.session_state["pub_report"] = report
 
-    if "pub_report" in st.session_state and mode == "Publisher Report Card":
+    if (
+        "pub_report" in st.session_state
+        and mode == "Publisher Report Card"
+    ):
         report = st.session_state["pub_report"]
 
         st.markdown(f"""
@@ -1512,7 +1607,9 @@ else:
             hide_index=True
         )
 
-        csv_pub = report["datasets"].to_csv(index=False).encode("utf-8")
+        csv_pub = (
+            report["datasets"].to_csv(index=False).encode("utf-8")
+        )
         st.download_button(
             label="Download Publisher Report (CSV)",
             data=csv_pub,

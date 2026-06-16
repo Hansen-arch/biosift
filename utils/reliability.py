@@ -2,14 +2,15 @@ import pandas as pd
 import numpy as np
 from datetime import datetime, date
 
+
 def compute_reliability_score(df):
     scores = pd.Series(100.0, index=df.index)
 
     basis_scores = {
-        "HUMAN_OBSERVATION"  : 0,
-        "MACHINE_OBSERVATION": -5,
+        "HUMAN_OBSERVATION"  :   0,
+        "MACHINE_OBSERVATION":  -5,
         "PRESERVED_SPECIMEN" : -10,
-        "LIVING_SPECIMEN"    : -5,
+        "LIVING_SPECIMEN"    :  -5,
         "MATERIAL_SAMPLE"    : -10,
         "LITERATURE"         : -15,
         "FOSSIL_SPECIMEN"    : -20,
@@ -23,11 +24,11 @@ def compute_reliability_score(df):
             return -30
         try:
             decimals = len(str(float(val)).split(".")[-1].rstrip("0"))
-            if decimals >= 5 : return 0
-            elif decimals == 4: return -5
+            if decimals >= 5 : return   0
+            elif decimals == 4: return  -5
             elif decimals == 3: return -10
             elif decimals == 2: return -15
-            else:               return -25
+            else              : return -25
         except Exception:
             return -25
 
@@ -39,12 +40,12 @@ def compute_reliability_score(df):
         def age_penalty(y):
             if pd.isna(y): return -20
             age = current_year - int(y)
-            if age <= 5:    return 0
-            elif age <= 15: return -5
-            elif age <= 30: return -10
-            elif age <= 50: return -15
-            elif age <= 100:return -20
-            else:           return -30
+            if age <= 5    : return   0
+            elif age <= 15 : return  -5
+            elif age <= 30 : return -10
+            elif age <= 50 : return -15
+            elif age <= 100: return -20
+            else           : return -30
         scores += df["year"].apply(age_penalty)
 
     if "eventDate" in df.columns:
@@ -139,12 +140,16 @@ def generate_methods_text(species, df, clean_df, summary, score):
     old = summary.get("old_record",     {}).get("count", 0)
     mc  = summary.get("missing_coords", {}).get("count", 0)
     lp  = summary.get("low_precision",  {}).get("count", 0)
+    cm  = summary.get("country_mismatch", {}).get("count", 0)
 
     if dup: removed_parts.append(f"duplicates (n={dup})")
     if zc:  removed_parts.append(f"zero-coordinate records (n={zc})")
     if old: removed_parts.append(f"pre-1900 records (n={old})")
     if mc:  removed_parts.append(f"records missing coordinates (n={mc})")
     if lp:  removed_parts.append(f"low-precision coordinate records (n={lp})")
+    if cm:  removed_parts.append(
+        f"records with coordinates outside stated country (n={cm})"
+    )
 
     removed_str = (
         "Records were filtered to remove "
@@ -164,10 +169,72 @@ def generate_methods_text(species, df, clean_df, summary, score):
         f"(github.com/Hansen-arch/biosift). "
         f"{removed_str} "
         f"The dataset achieved a data health score of {score}% based on "
-        f"checks for duplicate records, coordinate validity, temporal "
-        f"completeness and coordinate precision. "
+        f"checks for duplicate records, coordinate validity, country "
+        f"coordinate consistency, temporal completeness and coordinate "
+        f"precision. "
         f"All data are available under their respective licences "
         f"via GBIF.org."
     )
 
     return text
+
+
+def generate_citation(species, df, species_info=None):
+    """
+    Generate a formatted GBIF dataset citation for the analysed species.
+    Returns a dict with:
+      - apa      : APA-style citation string
+      - bibtex   : BibTeX entry string
+      - note     : guidance on getting a real DOI
+      - search_url: direct GBIF search URL for this species
+    """
+    today      = date.today()
+    year_str   = str(today.year)
+    date_str   = today.strftime("%d %B %Y")
+    date_iso   = today.strftime("%Y-%m-%d")
+
+    safe_name  = species.replace(" ", "+")
+    search_url = (
+        f"https://www.gbif.org/occurrence/search"
+        f"?scientificName={safe_name}&hasCoordinate=true"
+    )
+
+    record_count = len(df)
+
+    # APA style
+    apa = (
+        f"GBIF.org ({year_str}). Occurrence records for "
+        f"{species} [Dataset]. "
+        f"Global Biodiversity Information Facility. "
+        f"Retrieved {date_str} from {search_url} "
+        f"({record_count:,} records accessed via BioSift)."
+    )
+
+    # BibTeX
+    safe_key = species.replace(" ", "_").lower()
+    bibtex = (
+        f"@misc{{gbif_{safe_key}_{year_str},\n"
+        f"  author    = {{{{GBIF.org}}}},\n"
+        f"  title     = {{Occurrence records for {species}}},\n"
+        f"  year      = {{{year_str}}},\n"
+        f"  publisher = {{Global Biodiversity Information Facility}},\n"
+        f"  note      = {{Retrieved {date_str}. "
+        f"{record_count:,} records. Accessed via BioSift}},\n"
+        f"  url       = {{{search_url}}}\n"
+        f"}}"
+    )
+
+    note = (
+        "For a citable DOI, download this dataset directly from GBIF: "
+        "go to gbif.org/occurrence/search, apply your filters, "
+        "click 'Download', and GBIF will generate a permanent DOI "
+        "for your exact download (e.g. https://doi.org/10.15468/dl.xxxxx). "
+        "Use that DOI in your citation instead."
+    )
+
+    return {
+        "apa"       : apa,
+        "bibtex"    : bibtex,
+        "note"      : note,
+        "search_url": search_url
+    }
