@@ -2,7 +2,13 @@ import streamlit as st
 from streamlit_folium import st_folium
 import pandas as pd
 from utils.gbif_fetch    import fetch_occurrences, SAMPLE_SPECIES
-from utils.quality       import run_quality_checks, quality_summary, get_precision_stats
+from utils.species_info  import get_species_info, search_species_names
+from utils.quality       import (
+    run_quality_checks,
+    quality_summary,
+    get_precision_stats,
+    get_multimedia_stats
+)
 from utils.maps          import build_map
 from utils.iucn          import get_iucn_status
 from utils.outliers      import detect_outliers, outlier_summary
@@ -36,7 +42,6 @@ st.set_page_config(
 # ── CSS ───────────────────────────────────────────────────
 st.markdown("""
 <style>
-    /* ── mobile ── */
     .mobile-notice {
         display: none;
         background: #2D1D10;
@@ -49,27 +54,13 @@ st.markdown("""
         text-align: center;
     }
     @media (max-width: 768px) {
-        .mobile-notice {
-            display: block;
-        }
-        .app-title {
-            font-size: 1.3rem;
-        }
-        .app-subtitle {
-            font-size: 0.8rem;
-        }
-        [data-testid="stMetricValue"] {
-            font-size: 1.2rem;
-        }
-        .health-score {
-            font-size: 1.5rem;
-        }
-        .temporal-stat-value {
-            font-size: 1.1rem;
-        }
+        .mobile-notice { display: block; }
+        .app-title { font-size: 1.3rem; }
+        .app-subtitle { font-size: 0.8rem; }
+        [data-testid="stMetricValue"] { font-size: 1.2rem; }
+        .health-score { font-size: 1.5rem; }
+        .temporal-stat-value { font-size: 1.1rem; }
     }
-
-    /* ── global ── */
     html, body, [class*="css"] {
         font-family: 'Inter', 'Segoe UI', sans-serif;
     }
@@ -139,13 +130,6 @@ st.markdown("""
         padding-bottom: 0.4rem;
         border-bottom: 1px solid #21262D;
     }
-    .species-title {
-        font-size: 1.4rem;
-        font-weight: 600;
-        font-style: italic;
-        color: #F0F6FC;
-        margin: 0 0 0.25rem 0;
-    }
     .iucn-badge {
         display: inline-flex;
         align-items: center;
@@ -154,7 +138,7 @@ st.markdown("""
         border-radius: 20px;
         font-size: 0.8rem;
         font-weight: 600;
-        margin-bottom: 1rem;
+        margin-top: 0.5rem;
     }
     .iucn-cr{background:#2D1515;color:#F85149;border:1px solid #F85149;}
     .iucn-en{background:#2D1D10;color:#F0883E;border:1px solid #F0883E;}
@@ -317,7 +301,6 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# ── mobile notice ─────────────────────────────────────────
 st.markdown("""
 <div class="mobile-notice">
     📱 BioSift is optimised for desktop browsers.
@@ -336,6 +319,7 @@ with st.sidebar:
     st.divider()
 
     if mode == "Species Analysis":
+
         st.markdown(
             '<p class="sidebar-label">Quick Select</p>',
             unsafe_allow_html=True
@@ -347,18 +331,88 @@ with st.sidebar:
         )
 
         st.markdown(
-            '<p class="sidebar-label">Species Name</p>',
+            '<p class="sidebar-label">Search Species</p>',
             unsafe_allow_html=True
         )
-        species_input = st.text_input(
+        search_query = st.text_input(
             "",
-            placeholder="e.g. Panthera leo",
+            placeholder="Common or scientific name e.g. lion",
             label_visibility="collapsed"
         )
+
+        species_input = ""
+
+        if search_query:
+            with st.spinner("Searching..."):
+                suggestions = search_species_names(search_query)
+            if suggestions:
+                options  = ["— select species —"] + [
+                    s["label"] for s in suggestions
+                ]
+                selected = st.selectbox(
+                    "",
+                    options,
+                    label_visibility="collapsed",
+                    key="species_suggest"
+                )
+                if selected != "— select species —":
+                    matched = next(
+                        (s for s in suggestions if s["label"] == selected),
+                        None
+                    )
+                    if matched:
+                        species_input = matched["scientific"]
+                        st.caption(f"*{species_input}*")
+            else:
+                st.caption("No matches found. Try a different name.")
 
         if sample_choice != "— select a sample —" and not species_input:
             species_input = SAMPLE_SPECIES[sample_choice]
             st.caption(f"Using sample: *{species_input}*")
+
+        st.divider()
+
+        st.markdown(
+            '<p class="sidebar-label">Filters</p>',
+            unsafe_allow_html=True
+        )
+
+        col_y1, col_y2 = st.columns(2)
+        with col_y1:
+            year_from = st.number_input(
+                "Year from",
+                min_value=1000,
+                max_value=2026,
+                value=1900,
+                step=1
+            )
+        with col_y2:
+            year_to = st.number_input(
+                "Year to",
+                min_value=1000,
+                max_value=2026,
+                value=2026,
+                step=1
+            )
+
+        basis_options = [
+            "All",
+            "HUMAN_OBSERVATION",
+            "PRESERVED_SPECIMEN",
+            "MACHINE_OBSERVATION",
+            "LIVING_SPECIMEN",
+            "LITERATURE",
+            "FOSSIL_SPECIMEN"
+        ]
+        st.markdown(
+            '<p class="sidebar-label">Basis of Record</p>',
+            unsafe_allow_html=True
+        )
+        basis_filter = st.selectbox(
+            "",
+            basis_options,
+            label_visibility="collapsed"
+        )
 
         st.markdown(
             '<p class="sidebar-label">Max Records</p>',
@@ -388,11 +442,22 @@ with st.sidebar:
         )
 
         st.divider()
+
         search_btn = st.button(
             "Run Analysis",
             use_container_width=True,
             type="primary"
         )
+
+        if "df" in st.session_state:
+            if st.button("Clear Results", use_container_width=True):
+                for key in [
+                    "df", "total", "species", "flags",
+                    "summary", "outliers", "reliability",
+                    "iucn", "species_info", "multimedia"
+                ]:
+                    st.session_state.pop(key, None)
+                st.rerun()
 
     else:
         st.markdown(
@@ -426,66 +491,172 @@ if mode == "Species Analysis":
         if not species_input:
             st.warning("Please enter a species name or select a sample.")
         else:
-            with st.spinner(f"Fetching data for {species_input}..."):
-                df, total, error = fetch_occurrences(species_input, limit)
+            progress_bar = st.progress(0, text="Connecting to GBIF...")
 
-                if error:
-                    st.error(error)
+            df, total, error = fetch_occurrences(
+                species_name = species_input,
+                limit        = limit,
+                year_from    = int(year_from),
+                year_to      = int(year_to),
+                basis        = basis_filter
+            )
+
+            if error:
+                progress_bar.empty()
+                st.error(error)
+            else:
+                progress_bar.progress(0.5, text="Running quality checks...")
+
+                st.session_state["df"]          = df
+                st.session_state["total"]        = total
+                st.session_state["species"]      = species_input
+                st.session_state["year_from"]    = int(year_from)
+                st.session_state["year_to"]      = int(year_to)
+                st.session_state["basis_filter"] = basis_filter
+                st.session_state["flags"]        = run_quality_checks(df)
+                st.session_state["summary"]      = quality_summary(
+                    st.session_state["flags"]
+                )
+
+                progress_bar.progress(0.7, text="Detecting outliers...")
+                st.session_state["outliers"]    = detect_outliers(df)
+                st.session_state["reliability"] = compute_reliability_score(df)
+
+                progress_bar.progress(0.85, text="Fetching species info...")
+                st.session_state["species_info"] = get_species_info(species_input)
+
+                progress_bar.progress(0.95, text="Checking multimedia...")
+                st.session_state["multimedia"] = get_multimedia_stats(df)
+
+                progress_bar.progress(1.0, text="Done!")
+                progress_bar.empty()
+
+                if iucn_key:
+                    with st.spinner("Checking IUCN status..."):
+                        iucn = get_iucn_status(species_input, iucn_key)
+                        if iucn is None:
+                            st.warning(
+                                "IUCN status not found for this species."
+                            )
+                        st.session_state["iucn"] = iucn
                 else:
-                    st.session_state["df"]         = df
-                    st.session_state["total"]       = total
-                    st.session_state["species"]     = species_input
-                    st.session_state["flags"]       = run_quality_checks(df)
-                    st.session_state["summary"]     = quality_summary(
-                        st.session_state["flags"]
-                    )
-                    st.session_state["outliers"]    = detect_outliers(df)
-                    st.session_state["reliability"] = compute_reliability_score(df)
-
-                    if iucn_key:
-                        with st.spinner("Checking IUCN status..."):
-                            iucn = get_iucn_status(species_input, iucn_key)
-                            if iucn is None:
-                                st.warning(
-                                    "IUCN status not found for this species."
-                                )
-                            st.session_state["iucn"] = iucn
-                    else:
-                        st.session_state["iucn"] = None
+                    st.session_state["iucn"] = None
 
     if "df" in st.session_state and mode == "Species Analysis":
-        df          = st.session_state["df"]
-        total       = st.session_state["total"]
-        flags       = st.session_state["flags"]
-        summary     = st.session_state["summary"]
-        species     = st.session_state["species"]
-        iucn        = st.session_state.get("iucn")
-        outliers    = st.session_state.get("outliers")
-        reliability = st.session_state.get("reliability")
+        df           = st.session_state["df"]
+        total        = st.session_state["total"]
+        flags        = st.session_state["flags"]
+        summary      = st.session_state["summary"]
+        species      = st.session_state["species"]
+        iucn         = st.session_state.get("iucn")
+        outliers     = st.session_state.get("outliers")
+        reliability  = st.session_state.get("reliability")
+        species_info = st.session_state.get("species_info")
+        multimedia   = st.session_state.get("multimedia")
+        yr_from      = st.session_state.get("year_from",    1900)
+        yr_to        = st.session_state.get("year_to",      2026)
+        basis_used   = st.session_state.get("basis_filter", "All")
 
         clean_df = df[~flags["any_flag"]].reset_index(drop=True)
         clean    = len(clean_df)
         score    = round(clean / len(flags) * 100, 1)
 
-        # ── species + iucn ────────────────────────────────
-        st.markdown(
-            f'<p class="species-title">{species}</p>',
-            unsafe_allow_html=True
-        )
+        # ── species card ──────────────────────────────────
+        if species_info:
+            col_img, col_info = st.columns([1, 4])
 
-        if iucn:
-            cat = iucn["category"]
-            css_class = {
-                "CR":"iucn-cr","EN":"iucn-en","VU":"iucn-vu",
-                "NT":"iucn-lc","LC":"iucn-lc","DD":"iucn-dd",
-                "EX":"iucn-ex","EW":"iucn-ex","NE":"iucn-dd"
-            }.get(cat, "iucn-dd")
-            st.markdown(
-                f'<span class="iucn-badge {css_class}">'
-                f'{iucn["emoji"]} {iucn["label"]} ({cat})'
-                f' · Assessed {iucn["published_year"]}'
-                f'</span>',
-                unsafe_allow_html=True
+            with col_img:
+                if species_info.get("image_url"):
+                    st.image(
+                        species_info["image_url"],
+                        width=150,
+                        use_container_width=False
+                    )
+                else:
+                    st.markdown(
+                        '<div style="width:120px;height:120px;'
+                        'background:#21262D;border-radius:8px;'
+                        'display:flex;align-items:center;'
+                        'justify-content:center;font-size:2.5rem">🌿</div>',
+                        unsafe_allow_html=True
+                    )
+
+            with col_info:
+                st.markdown(f"**{species_info['scientific_name']}**")
+
+                if species_info.get("common_names"):
+                    st.markdown(
+                        f"*{', '.join(species_info['common_names'])}*"
+                    )
+
+                tax_data = {
+                    "Kingdom": species_info.get("kingdom", "—"),
+                    "Phylum" : species_info.get("phylum",  "—"),
+                    "Class"  : species_info.get("class_",  "—"),
+                    "Order"  : species_info.get("order",   "—"),
+                    "Family" : species_info.get("family",  "—"),
+                    "Genus"  : species_info.get("genus",   "—"),
+                }
+
+                tax_cols = st.columns(6)
+                for i, (rank, value) in enumerate(tax_data.items()):
+                    with tax_cols[i]:
+                        st.markdown(
+                            f'<div style="font-size:0.65rem;font-weight:600;'
+                            f'text-transform:uppercase;letter-spacing:0.5px;'
+                            f'color:#8B949E">{rank}</div>'
+                            f'<div style="font-size:0.8rem;color:#C9D1D9;'
+                            f'font-style:italic">{value}</div>',
+                            unsafe_allow_html=True
+                        )
+
+                if iucn:
+                    cat = iucn["category"]
+                    css_class = {
+                        "CR":"iucn-cr","EN":"iucn-en","VU":"iucn-vu",
+                        "NT":"iucn-lc","LC":"iucn-lc","DD":"iucn-dd",
+                        "EX":"iucn-ex","EW":"iucn-ex","NE":"iucn-dd"
+                    }.get(cat, "iucn-dd")
+                    st.markdown(
+                        f'<span class="iucn-badge {css_class}">'
+                        f'{iucn["emoji"]} {iucn["label"]} ({cat})'
+                        f' · Assessed {iucn["published_year"]}'
+                        f'</span>',
+                        unsafe_allow_html=True
+                    )
+
+                if species_info.get("gbif_url"):
+                    st.markdown(
+                        f'[View on GBIF ↗]({species_info["gbif_url"]})'
+                    )
+
+        else:
+            st.markdown(f"### *{species}*")
+            if iucn:
+                cat = iucn["category"]
+                css_class = {
+                    "CR":"iucn-cr","EN":"iucn-en","VU":"iucn-vu",
+                    "NT":"iucn-lc","LC":"iucn-lc","DD":"iucn-dd",
+                    "EX":"iucn-ex","EW":"iucn-ex","NE":"iucn-dd"
+                }.get(cat, "iucn-dd")
+                st.markdown(
+                    f'<span class="iucn-badge {css_class}">'
+                    f'{iucn["emoji"]} {iucn["label"]} ({cat})'
+                    f' · Assessed {iucn["published_year"]}'
+                    f'</span>',
+                    unsafe_allow_html=True
+                )
+
+        # filter notice
+        filter_parts = []
+        if yr_from != 1900 or yr_to != 2026:
+            filter_parts.append(f"Year: {yr_from}–{yr_to}")
+        if basis_used != "All":
+            filter_parts.append(f"Basis: {basis_used}")
+        if filter_parts:
+            st.info(
+                f"Active filters: {' · '.join(filter_parts)}. "
+                f"All statistics reflect the filtered dataset only."
             )
 
         # ── metrics ───────────────────────────────────────
@@ -596,6 +767,60 @@ if mode == "Species Analysis":
                             "Outlier %",
                             f"{out_stats['outlier_pct']}%"
                         )
+                    st.caption(
+                        "Outlier % varies with record count and "
+                        "geographic distribution of the fetched sample."
+                    )
+
+                # multimedia quality
+                st.markdown(
+                    '<p class="section-header">Multimedia Quality</p>',
+                    unsafe_allow_html=True
+                )
+
+                if multimedia:
+                    m1, m2, m3 = st.columns(3)
+                    with m1:
+                        st.metric(
+                            "Media Coverage",
+                            f"{multimedia['coverage_pct']}%"
+                        )
+                    with m2:
+                        st.metric(
+                            "Missing Media",
+                            f"{multimedia['missing_media']:,}"
+                        )
+                    with m3:
+                        st.metric(
+                            "Broken URLs",
+                            f"{multimedia['broken_urls']:,}"
+                        )
+
+                    if multimedia["broken_pct"] > 20:
+                        st.warning(
+                            f"{multimedia['broken_pct']}% of sampled image "
+                            f"URLs are inaccessible. This may affect visual "
+                            f"verification of occurrence records."
+                        )
+                    elif multimedia["coverage_pct"] < 20:
+                        st.info(
+                            f"Only {multimedia['coverage_pct']}% of records "
+                            f"have images attached. Visual verification "
+                            f"is limited."
+                        )
+                    else:
+                        st.success(
+                            f"{multimedia['coverage_pct']}% of records have "
+                            f"images — good multimedia coverage."
+                        )
+
+                    if multimedia["sample_checked"] > 0:
+                        st.caption(
+                            f"Broken URL check sampled "
+                            f"{multimedia['sample_checked']} image URLs."
+                        )
+                else:
+                    st.info("Multimedia data not available for this dataset.")
 
             with col_right:
                 temporal_stats = get_temporal_stats(df)
@@ -604,6 +829,9 @@ if mode == "Species Analysis":
                 st.markdown(
                     '<p class="section-header">Data Fitness</p>',
                     unsafe_allow_html=True
+                )
+                st.caption(
+                    "Based on the currently fetched and filtered dataset."
                 )
 
                 for f in fitness:
@@ -786,6 +1014,12 @@ if mode == "Species Analysis":
                 unsafe_allow_html=True
             )
 
+            if yr_from != 1900 or yr_to != 2026:
+                st.caption(
+                    f"Showing temporal data for filtered range: "
+                    f"{yr_from}–{yr_to}"
+                )
+
             temporal_stats = get_temporal_stats(df)
 
             if temporal_stats:
@@ -832,6 +1066,11 @@ if mode == "Species Analysis":
                     fig_year = chart_records_per_year(df)
                     if fig_year:
                         st.plotly_chart(fig_year, use_container_width=True)
+                    else:
+                        st.info(
+                            "Not enough yearly data to plot. "
+                            "Try widening your year range filter."
+                        )
                 with col2:
                     fig_decade = chart_decade_breakdown(df)
                     if fig_decade:
@@ -849,7 +1088,7 @@ if mode == "Species Analysis":
                     f"Recording trend is "
                     f"**{temporal_stats['trend']}** over time.",
                     f"**{temporal_stats['recent_pct']}%** of records are "
-                    f"from the last 5 years."
+                    f"from the last 5 years of the filtered range."
                 ]
 
                 if temporal_stats["cs_surge"]:
@@ -872,7 +1111,10 @@ if mode == "Species Analysis":
                     st.markdown(f"- {insight}")
 
             else:
-                st.info("Not enough temporal data to analyse.")
+                st.info(
+                    "Not enough temporal data to analyse. "
+                    "Try widening your year range filter."
+                )
 
         # ── TAB 4: Charts ─────────────────────────────────
         with tab4:

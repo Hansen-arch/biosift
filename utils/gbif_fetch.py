@@ -15,29 +15,53 @@ COLS = [
     "species", "country", "year", "month",
     "decimalLatitude", "decimalLongitude",
     "basisOfRecord", "issues", "datasetName",
-    "occurrenceID", "eventDate"
+    "occurrenceID", "eventDate", "countryCode"
 ]
 
 MAX_PER_REQUEST = 300
 
 @st.cache_data(ttl=3600)
-def fetch_occurrences(species_name, limit=300):
+def fetch_occurrences(
+    species_name,
+    limit        = 500,
+    year_from    = None,
+    year_to      = None,
+    country_code = None,
+    basis        = None
+):
     try:
         all_results = []
         offset      = 0
         total       = None
 
+        year_range = None
+        if year_from and year_to:
+            year_range = f"{year_from},{year_to}"
+        elif year_from:
+            year_range = f"{year_from},{year_from + 100}"
+        elif year_to:
+            year_range = f"1000,{year_to}"
+
         while len(all_results) < limit:
             batch_size = min(MAX_PER_REQUEST, limit - len(all_results))
 
+            params = {
+                "scientificName": species_name,
+                "limit"         : batch_size,
+                "offset"        : offset,
+                "hasCoordinate" : True
+            }
+
+            if year_range:
+                params["year"] = year_range
+            if country_code and country_code != "All":
+                params["country"] = country_code
+            if basis and basis != "All":
+                params["basisOfRecord"] = basis
+
             for attempt in range(3):
                 try:
-                    data = occ.search(
-                        scientificName = species_name,
-                        limit          = batch_size,
-                        offset         = offset,
-                        hasCoordinate  = True
-                    )
+                    data = occ.search(**params)
                     break
                 except Exception:
                     if attempt < 2:
@@ -56,12 +80,11 @@ def fetch_occurrences(species_name, limit=300):
             all_results.extend(results)
             offset += len(results)
 
-            # stop if we've fetched everything available
             if offset >= total:
                 break
 
         if not all_results:
-            return None, 0, "No records found. Check species name spelling."
+            return None, 0, "No records found. Check species name or adjust filters."
 
         if len(all_results) < 2:
             return None, 0, "Not enough records to analyse."

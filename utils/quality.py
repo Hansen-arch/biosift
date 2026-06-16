@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import requests
 
 def run_quality_checks(df):
     flags = pd.DataFrame(index=df.index)
@@ -78,14 +79,14 @@ def _check_low_precision(lat, lon):
 
 
 def quality_summary(flags):
-    total = len(flags)
+    total   = len(flags)
     summary = {}
 
     for col in flags.columns:
         try:
             count = flags[col].sum()
             summary[col] = {
-                "count": int(count),
+                "count"  : int(count),
                 "percent": round(count / total * 100, 1) if total > 0 else 0
             }
         except Exception:
@@ -106,11 +107,91 @@ def get_precision_stats(df):
 
         bins = {
             "Very Low (0-1 decimal, ~10km)": int((lat_prec <= 1).sum()),
-            "Low (2 decimals, ~1km)":        int((lat_prec == 2).sum()),
-            "Medium (3 decimals, ~100m)":    int((lat_prec == 3).sum()),
-            "High (4 decimals, ~10m)":       int((lat_prec == 4).sum()),
-            "Very High (5+ decimals, ~1m)":  int((lat_prec >= 5).sum()),
+            "Low (2 decimals, ~1km)"        : int((lat_prec == 2).sum()),
+            "Medium (3 decimals, ~100m)"    : int((lat_prec == 3).sum()),
+            "High (4 decimals, ~10m)"       : int((lat_prec == 4).sum()),
+            "Very High (5+ decimals, ~1m)"  : int((lat_prec >= 5).sum()),
         }
         return bins
     except Exception:
         return {}
+
+
+def get_multimedia_stats(df):
+    """
+    Check multimedia quality of GBIF occurrence records.
+    Returns stats on missing media, broken URLs and overall coverage.
+    """
+    try:
+        total = len(df)
+
+        # check if media field exists
+        if "media" not in df.columns:
+            return {
+                "has_media_field" : False,
+                "missing_media"   : total,
+                "missing_pct"     : 100.0,
+                "has_media"       : 0,
+                "coverage_pct"    : 0.0,
+                "broken_urls"     : 0,
+                "broken_pct"      : 0.0,
+                "sample_checked"  : 0
+            }
+
+        # count records with at least one media item
+        def has_media(x):
+            if isinstance(x, list):
+                return len(x) > 0
+            return False
+
+        media_mask    = df["media"].apply(has_media)
+        has_media_count = int(media_mask.sum())
+        missing_media   = total - has_media_count
+        coverage_pct    = round(has_media_count / total * 100, 1) if total > 0 else 0
+        missing_pct     = round(missing_media   / total * 100, 1) if total > 0 else 0
+
+        # collect all image URLs from records that have media
+        image_urls = []
+        for media_list in df.loc[media_mask, "media"]:
+            if isinstance(media_list, list):
+                for item in media_list:
+                    if isinstance(item, dict):
+                        url = item.get("identifier", "")
+                        if url and url.startswith("http"):
+                            image_urls.append(url)
+
+        # sample check up to 20 URLs for broken links
+        sample_size   = min(20, len(image_urls))
+        broken_count  = 0
+        sample_checked = 0
+
+        if image_urls and sample_size > 0:
+            import random
+            sampled = random.sample(image_urls, sample_size)
+            for url in sampled:
+                try:
+                    r = requests.head(url, timeout=5, allow_redirects=True)
+                    if r.status_code >= 400:
+                        broken_count += 1
+                    sample_checked += 1
+                except Exception:
+                    broken_count  += 1
+                    sample_checked += 1
+
+        broken_pct = round(
+            broken_count / sample_checked * 100, 1
+        ) if sample_checked > 0 else 0.0
+
+        return {
+            "has_media_field" : True,
+            "missing_media"   : missing_media,
+            "missing_pct"     : missing_pct,
+            "has_media"       : has_media_count,
+            "coverage_pct"    : coverage_pct,
+            "broken_urls"     : broken_count,
+            "broken_pct"      : broken_pct,
+            "sample_checked"  : sample_checked
+        }
+
+    except Exception:
+        return None
