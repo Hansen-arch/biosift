@@ -438,22 +438,22 @@ with st.sidebar:
 
         st.divider()
 
-        # ── map type selector in sidebar ──────────────────
-        # Lives here instead of inside Tab 2 to prevent
-        # Streamlit tab reset when the radio triggers a rerun
-        if "df" in st.session_state:
-            st.markdown(
-                '<p class="sidebar-label">Map Type</p>',
-                unsafe_allow_html=True
-            )
-            st.radio(
-                "",
-                ["Point Map", "Heatmap",
-                 "DBSCAN Outliers", "SDM Preview"],
-                key="map_type",
-                label_visibility="collapsed"
-            )
-            st.divider()
+         # ── map type selector — always rendered ───────────
+        # Must NOT be conditional — conditional widgets shift
+        # the widget tree and cause Streamlit to reset tabs
+        st.markdown(
+            '<p class="sidebar-label">Map Type</p>',
+            unsafe_allow_html=True
+        )
+        st.radio(
+            "",
+            ["Point Map", "Heatmap",
+             "DBSCAN Outliers", "SDM Preview"],
+            key="map_type",
+            label_visibility="collapsed",
+            disabled="df" not in st.session_state
+        )
+        st.divider()
 
         search_btn = st.button(
             "Run Analysis",
