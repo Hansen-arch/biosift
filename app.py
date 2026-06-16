@@ -356,9 +356,9 @@ with st.sidebar:
             label_visibility="collapsed"
         )
 
-        if sample_choice != "— select a sample —":
+        if sample_choice != "— select a sample —" and not species_input:
             species_input = SAMPLE_SPECIES[sample_choice]
-            st.caption(f"*{species_input}*")
+            st.caption(f"Using sample: *{species_input}*")
 
         st.markdown(
             '<p class="sidebar-label">Max Records</p>',
