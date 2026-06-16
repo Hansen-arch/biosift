@@ -2,7 +2,7 @@ import streamlit as st
 from streamlit_folium import st_folium
 import pandas as pd
 import requests
-from utils.gbif_fetch  import fetch_occurrences, SAMPLE_SPECIES
+from utils.gbif_fetch   import fetch_occurrences, SAMPLE_SPECIES
 from utils.species_info import get_species_info
 from utils.quality      import (
     run_quality_checks,
@@ -140,6 +140,13 @@ st.markdown("""
         padding: 1.2rem 1.5rem;
         margin-bottom: 1.25rem;
     }
+    .completeness-bar-wrap {
+        background: #161B22;
+        border: 1px solid #21262D;
+        border-radius: 10px;
+        padding: 1.2rem 1.5rem;
+        margin-bottom: 1.25rem;
+    }
     .health-label {
         font-size: 0.75rem;
         font-weight: 600;
@@ -167,13 +174,6 @@ st.markdown("""
     .health-bar-good  { background: #3FB950; }
     .health-bar-fair  { background: #E3B341; }
     .health-bar-poor  { background: #F85149; }
-    .completeness-bar-wrap {
-        background: #161B22;
-        border: 1px solid #21262D;
-        border-radius: 10px;
-        padding: 1.2rem 1.5rem;
-        margin-bottom: 1.25rem;
-    }
     .rec-card {
         padding: 0.85rem 1rem;
         border-radius: 8px;
@@ -223,12 +223,14 @@ st.markdown("""
     .fitness-badge-yes {
         background: #1F2D1F; color: #3FB950;
         border: 1px solid #3FB950; border-radius: 12px;
-        padding: 0.15rem 0.6rem; font-size: 0.75rem; font-weight: 600;
+        padding: 0.15rem 0.6rem;
+        font-size: 0.75rem; font-weight: 600;
     }
     .fitness-badge-no {
         background: #2D1515; color: #F85149;
         border: 1px solid #F85149; border-radius: 12px;
-        padding: 0.15rem 0.6rem; font-size: 0.75rem; font-weight: 600;
+        padding: 0.15rem 0.6rem;
+        font-size: 0.75rem; font-weight: 600;
     }
     .map-legend {
         display: flex; gap: 1.5rem;
@@ -236,8 +238,11 @@ st.markdown("""
         font-size: 0.8rem; color: #8B949E;
     }
     .legend-dot {
-        display: inline-block; width: 10px; height: 10px;
-        border-radius: 50%; margin-right: 4px; vertical-align: middle;
+        display: inline-block;
+        width: 10px; height: 10px;
+        border-radius: 50%;
+        margin-right: 4px;
+        vertical-align: middle;
     }
     .dot-green  { background: #3FB950; }
     .dot-red    { background: #F85149; }
@@ -248,8 +253,10 @@ st.markdown("""
         color: #8B949E; margin-bottom: 0.25rem;
     }
     .pub-card {
-        background: #161B22; border: 1px solid #21262D;
-        border-radius: 10px; padding: 1.2rem 1.5rem;
+        background: #161B22;
+        border: 1px solid #21262D;
+        border-radius: 10px;
+        padding: 1.2rem 1.5rem;
         margin-bottom: 1rem;
     }
     .pub-title {
@@ -257,13 +264,6 @@ st.markdown("""
         color: #F0F6FC; margin-bottom: 0.5rem;
     }
     .pub-stat { font-size: 0.875rem; color: #8B949E; }
-    .citation-box {
-        background: #161B22;
-        border: 1px solid #21262D;
-        border-radius: 10px;
-        padding: 1.2rem 1.5rem;
-        margin-bottom: 1rem;
-    }
     .citation-note {
         background: #0D1926;
         border-left: 3px solid #58A6FF;
@@ -334,6 +334,11 @@ def prepare_export_df(df):
         export["issues"] = export["issues"].apply(clean_issues)
 
     return export
+
+
+# ── init map_type before sidebar renders ─────────────────
+if "map_type" not in st.session_state:
+    st.session_state["map_type"] = "Point Map"
 
 
 # ── sidebar ───────────────────────────────────────────────
@@ -433,6 +438,23 @@ with st.sidebar:
 
         st.divider()
 
+        # ── map type selector in sidebar ──────────────────
+        # Lives here instead of inside Tab 2 to prevent
+        # Streamlit tab reset when the radio triggers a rerun
+        if "df" in st.session_state:
+            st.markdown(
+                '<p class="sidebar-label">Map Type</p>',
+                unsafe_allow_html=True
+            )
+            st.radio(
+                "",
+                ["Point Map", "Heatmap",
+                 "DBSCAN Outliers", "SDM Preview"],
+                key="map_type",
+                label_visibility="collapsed"
+            )
+            st.divider()
+
         search_btn = st.button(
             "Run Analysis",
             use_container_width=True,
@@ -482,7 +504,10 @@ if mode == "Species Analysis":
             try:
                 pre_check = requests.get(
                     "https://api.gbif.org/v1/occurrence/search",
-                    params={"scientificName": species_input, "limit": 1},
+                    params={
+                        "scientificName": species_input,
+                        "limit"         : 1
+                    },
                     timeout=10
                 ).json()
                 pre_count = pre_check.get("count", 0)
@@ -516,7 +541,9 @@ if mode == "Species Analysis":
                 clear_results()
                 st.error(error)
             else:
-                progress_bar.progress(0.5, text="Running quality checks...")
+                progress_bar.progress(
+                    0.5, text="Running quality checks..."
+                )
 
                 st.session_state["df"]           = df
                 st.session_state["total"]         = total
@@ -530,16 +557,22 @@ if mode == "Species Analysis":
                 )
                 st.session_state["completeness"]  = get_completeness_score(df)
 
-                progress_bar.progress(0.7, text="Detecting outliers...")
+                progress_bar.progress(
+                    0.7, text="Detecting outliers..."
+                )
                 st.session_state["outliers"]     = detect_outliers(df)
                 st.session_state["reliability"]  = compute_reliability_score(df)
 
-                progress_bar.progress(0.85, text="Fetching species info...")
+                progress_bar.progress(
+                    0.85, text="Fetching species info..."
+                )
                 st.session_state["species_info"] = get_species_info(
                     species_input
                 )
 
-                progress_bar.progress(0.95, text="Checking multimedia...")
+                progress_bar.progress(
+                    0.95, text="Checking multimedia..."
+                )
                 st.session_state["multimedia"]   = get_multimedia_stats(df)
 
                 progress_bar.progress(1.0, text="Done!")
@@ -580,7 +613,8 @@ if mode == "Species Analysis":
                         '<div style="width:120px;height:120px;'
                         'background:#21262D;border-radius:8px;'
                         'display:flex;align-items:center;'
-                        'justify-content:center;font-size:2.5rem">🌿</div>',
+                        'justify-content:center;'
+                        'font-size:2.5rem">🌿</div>',
                         unsafe_allow_html=True
                     )
 
@@ -605,11 +639,13 @@ if mode == "Species Analysis":
                 for i, (rank, value) in enumerate(tax_data.items()):
                     with tax_cols[i]:
                         st.markdown(
-                            f'<div style="font-size:0.65rem;font-weight:600;'
-                            f'text-transform:uppercase;letter-spacing:0.5px;'
-                            f'color:#8B949E">{rank}</div>'
-                            f'<div style="font-size:0.8rem;color:#C9D1D9;'
-                            f'font-style:italic">{value}</div>',
+                            f'<div style="font-size:0.65rem;'
+                            f'font-weight:600;text-transform:uppercase;'
+                            f'letter-spacing:0.5px;color:#8B949E">'
+                            f'{rank}</div>'
+                            f'<div style="font-size:0.8rem;'
+                            f'color:#C9D1D9;font-style:italic">'
+                            f'{value}</div>',
                             unsafe_allow_html=True
                         )
 
@@ -633,7 +669,7 @@ if mode == "Species Analysis":
                 f"All statistics reflect the filtered dataset only."
             )
 
-        # ── metrics ───────────────────────────────────────
+        # ── top metrics ───────────────────────────────────
         col1, col2, col3, col4 = st.columns(4)
         with col1:
             st.metric("Total GBIF Records", f"{total:,}")
@@ -645,10 +681,6 @@ if mode == "Species Analysis":
             st.metric("Health Score",        f"{score}%")
 
         st.divider()
-
-        # ── init map_type before tabs ─────────────────────
-        if "map_type" not in st.session_state:
-            st.session_state["map_type"] = "Point Map"
 
         # ── tabs ──────────────────────────────────────────
         tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
@@ -667,6 +699,7 @@ if mode == "Species Analysis":
             col_left, col_right = st.columns([1, 1])
 
             with col_left:
+
                 # ── health score bar ──────────────────────
                 if score >= 80:
                     h_class = "health-good"
@@ -742,7 +775,8 @@ if mode == "Species Analysis":
                     with st.expander("Field-level Completeness"):
                         field_rows = [
                             {"Field": k, "Fill Rate": f"{v}%"}
-                            for k, v in completeness["field_fill"].items()
+                            for k, v
+                            in completeness["field_fill"].items()
                         ]
                         st.dataframe(
                             pd.DataFrame(field_rows),
@@ -762,14 +796,16 @@ if mode == "Species Analysis":
                 for check, stats in summary.items():
                     if check not in skip:
                         issue_rows.append({
-                            "Check"          : check.replace(
+                            "Check": check.replace(
                                 "_", " "
                             ).title(),
                             "Flagged Records": stats["count"],
                             "Percentage"     : f"{stats['percent']}%",
-                            "Status"         : "Issue Found"
-                                               if stats["count"] > 0
-                                               else "OK"
+                            "Status"         : (
+                                "Issue Found"
+                                if stats["count"] > 0
+                                else "OK"
+                            )
                         })
                         if stats["count"] > 0:
                             found_any = True
@@ -783,8 +819,10 @@ if mode == "Species Analysis":
                 if not found_any:
                     st.success("No major quality issues found.")
 
-                if ("has_issues" in summary
-                        and summary["has_issues"]["count"] > 0):
+                if (
+                    "has_issues" in summary
+                    and summary["has_issues"]["count"] > 0
+                ):
                     st.info(
                         f"{summary['has_issues']['count']} records carry "
                         f"GBIF internal flags — informational only."
@@ -840,20 +878,21 @@ if mode == "Species Analysis":
 
                     if multimedia["broken_pct"] > 20:
                         st.warning(
-                            f"{multimedia['broken_pct']}% of sampled image "
-                            f"URLs are inaccessible. This may affect visual "
-                            f"verification of occurrence records."
+                            f"{multimedia['broken_pct']}% of sampled "
+                            f"image URLs are inaccessible. This may "
+                            f"affect visual verification of occurrence "
+                            f"records."
                         )
                     elif multimedia["coverage_pct"] < 20:
                         st.info(
-                            f"Only {multimedia['coverage_pct']}% of records "
-                            f"have images attached. Visual verification "
-                            f"is limited."
+                            f"Only {multimedia['coverage_pct']}% of "
+                            f"records have images attached. Visual "
+                            f"verification is limited."
                         )
                     else:
                         st.success(
-                            f"{multimedia['coverage_pct']}% of records have "
-                            f"images — good multimedia coverage."
+                            f"{multimedia['coverage_pct']}% of records "
+                            f"have images — good multimedia coverage."
                         )
 
                     if multimedia["sample_checked"] > 0:
@@ -957,11 +996,12 @@ if mode == "Species Analysis":
                 unsafe_allow_html=True
             )
 
-            map_type = st.radio(
-                "Map type",
-                ["Point Map", "Heatmap", "DBSCAN Outliers", "SDM Preview"],
-                horizontal=True,
-                key="map_type"
+            # read map_type from session state — set in sidebar
+            map_type = st.session_state.get("map_type", "Point Map")
+
+            st.caption(
+                f"Showing: **{map_type}** — "
+                f"change map type in the sidebar"
             )
 
             if map_type == "Point Map":
@@ -1028,9 +1068,12 @@ if mode == "Species Analysis":
                                 continue
                             is_out = (
                                 outliers.loc[idx]
-                                if outliers is not None else False
+                                if outliers is not None
+                                else False
                             )
-                            color = "#F0883E" if is_out else "#3FB950"
+                            color = (
+                                "#F0883E" if is_out else "#3FB950"
+                            )
                             fl.CircleMarker(
                                 location=[lat, lon],
                                 radius=4,
@@ -1051,7 +1094,8 @@ if mode == "Species Analysis":
                         out_stats = outlier_summary(outliers)
                         st.info(
                             f"DBSCAN detected "
-                            f"**{out_stats['outliers']}** spatial outliers "
+                            f"**{out_stats['outliers']}** spatial "
+                            f"outliers "
                             f"({out_stats['outlier_pct']}% of records)"
                         )
                 except Exception as e:
@@ -1059,9 +1103,10 @@ if mode == "Species Analysis":
 
             elif map_type == "SDM Preview":
                 st.info(
-                    "SDM Preview uses Kernel Density Estimation to show "
-                    "predicted habitat suitability based on occurrence "
-                    "records. Red = high suitability, green = low."
+                    "SDM Preview uses Kernel Density Estimation to "
+                    "show predicted habitat suitability based on "
+                    "occurrence records. "
+                    "Red = high suitability, green = low."
                 )
                 with st.spinner("Building SDM..."):
                     sdm_map, sdm_error = build_sdm_map(df)
@@ -1162,23 +1207,26 @@ if mode == "Species Analysis":
                 insights = [
                     f"Peak recording year was "
                     f"**{temporal_stats['peak_year']}** "
-                    f"with **{temporal_stats['peak_count']:,}** records.",
+                    f"with **{temporal_stats['peak_count']:,}** "
+                    f"records.",
                     f"Recording trend is "
                     f"**{temporal_stats['trend']}** over time.",
-                    f"**{temporal_stats['recent_pct']}%** of records are "
-                    f"from the last 5 years of the filtered range."
+                    f"**{temporal_stats['recent_pct']}%** of records "
+                    f"are from the last 5 years of the filtered range."
                 ]
 
                 if temporal_stats["cs_surge"]:
                     insights.append(
                         "Significant **citizen science surge** detected "
-                        "post-2008, likely from platforms like iNaturalist."
+                        "post-2008, likely from platforms like "
+                        "iNaturalist."
                     )
 
                 if temporal_stats["major_gaps"]:
                     gap_strs = [
                         f"{s}–{e}"
-                        for s, e in temporal_stats["major_gaps"][:3]
+                        for s, e
+                        in temporal_stats["major_gaps"][:3]
                     ]
                     insights.append(
                         f"Major data gaps detected: "
@@ -1204,7 +1252,7 @@ if mode == "Species Analysis":
                 unsafe_allow_html=True
             )
 
-            # ── observation density chart (new) ───────────
+            # observation density chart — full width
             fig_density = chart_country_density(df)
             if fig_density:
                 st.plotly_chart(fig_density, use_container_width=True)
@@ -1320,7 +1368,8 @@ if mode == "Species Analysis":
 
             # ── before / after cleaning ───────────────────
             st.markdown(
-                '<p class="section-header">Before & After Cleaning</p>',
+                '<p class="section-header">'
+                'Before & After Cleaning</p>',
                 unsafe_allow_html=True
             )
 
@@ -1363,8 +1412,8 @@ if mode == "Species Analysis":
             )
             st.caption(
                 "Exported files include a clean image_url column "
-                "extracted from GBIF media data, and GBIF issue flags "
-                "as readable text."
+                "extracted from GBIF media data, and GBIF issue "
+                "flags as readable text."
             )
 
             export_full  = prepare_export_df(df)
@@ -1443,7 +1492,7 @@ if mode == "Species Analysis":
 
             st.divider()
 
-            # ── citation generator (new) ──────────────────
+            # ── citation generator ────────────────────────
             st.markdown(
                 '<p class="section-header">'
                 'GBIF Dataset Citation</p>',
@@ -1530,7 +1579,9 @@ else:
 
     if pub_btn:
         if not publisher_input:
-            st.warning("Please enter a publisher or institution name.")
+            st.warning(
+                "Please enter a publisher or institution name."
+            )
         else:
             with st.spinner(f"Searching for {publisher_input}..."):
                 publishers, error = search_publisher(publisher_input)
