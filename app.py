@@ -380,11 +380,6 @@ def score_label(score):
 
 
 def fix_species_name(name):
-    """
-    Auto-correct scientific name capitalisation.
-    Genus capitalised, species and infraspecific lowercase.
-    Returns (corrected_name, was_changed bool).
-    """
     name = name.strip()
     if not name:
         return name, False
@@ -398,12 +393,6 @@ def fix_species_name(name):
 
 
 def parse_species_list(raw_text):
-    """
-    Parse species names from textarea.
-    Accepts newline-separated OR comma-separated OR mixed.
-    Auto-corrects capitalisation.
-    Returns list of up to 5 unique corrected names.
-    """
     if not raw_text.strip():
         return []
     parts  = re.split(r"[,\n]+", raw_text)
@@ -627,14 +616,14 @@ with st.sidebar:
         if batch_limit > 400:
             st.warning(
                 f"⚠️ {batch_limit} records × 5 species = up to "
-                f"{batch_limit * 5:,} API calls. "
+                f"{batch_limit * 5:,} total records. "
                 f"This will be slow. "
-                f"Recommended: 200 records or fewer."
+                f"Recommended: 200 or fewer."
             )
         elif batch_limit > 300:
             st.caption(
-                f"Fetching {batch_limit} records per species. "
-                f"This may take a moment."
+                f"{batch_limit} records per species — "
+                f"may take a moment."
             )
         else:
             st.caption(
@@ -1137,6 +1126,8 @@ if mode == "Species Analysis":
 
         # ══════════════════════════════════════════════════
         # TAB 2 — Occurrence Map
+        # ── stable keys on all st_folium calls prevent
+        #    tab reset when sidebar radio changes
         # ══════════════════════════════════════════════════
         with tab2:
             st.markdown(
@@ -1166,8 +1157,11 @@ if mode == "Species Analysis":
                     with st.spinner("Rendering map..."):
                         m = build_map(df, flags, map_type="points")
                         st_folium(
-                            m, width=None, height=560,
-                            returned_objects=[]
+                            m,
+                            width=None,
+                            height=560,
+                            returned_objects=[],
+                            key="map_points"
                         )
                 except Exception as e:
                     st.error(f"Map error: {str(e)}")
@@ -1177,8 +1171,11 @@ if mode == "Species Analysis":
                     with st.spinner("Rendering heatmap..."):
                         m = build_map(df, flags, map_type="heatmap")
                         st_folium(
-                            m, width=None, height=560,
-                            returned_objects=[]
+                            m,
+                            width=None,
+                            height=560,
+                            returned_objects=[],
+                            key="map_heatmap"
                         )
                 except Exception as e:
                     st.error(f"Map error: {str(e)}")
@@ -1230,8 +1227,11 @@ if mode == "Species Analysis":
                         except Exception:
                             continue
                     st_folium(
-                        m_db, width=None, height=560,
-                        returned_objects=[]
+                        m_db,
+                        width=None,
+                        height=560,
+                        returned_objects=[],
+                        key="map_dbscan"
                     )
                     if outliers is not None:
                         out_stats = outlier_summary(outliers)
@@ -1256,8 +1256,11 @@ if mode == "Species Analysis":
                         st.error(sdm_error)
                     else:
                         st_folium(
-                            sdm_map, width=None, height=560,
-                            returned_objects=[]
+                            sdm_map,
+                            width=None,
+                            height=560,
+                            returned_objects=[],
+                            key="map_sdm"
                         )
 
         # ══════════════════════════════════════════════════
@@ -1403,21 +1406,19 @@ if mode == "Species Analysis":
                 '<p class="section-header">Global Data Gap Map</p>',
                 unsafe_allow_html=True
             )
-
-            # ── clear gap map explanation ─────────────────
             st.info(
                 "This map divides the world into 10° grid cells. "
                 "**Coloured cells** show where occurrence records "
                 "exist for this species. "
-                "**Uncoloured (dark) cells** have no records at all "
-                "— these are the data gaps. "
-                "Most of the world will appear dark for any species "
-                "because species don't occur everywhere."
+                "**Dark (uncoloured) cells** have no records — "
+                "these are the data gaps. "
+                "Most of the world will appear dark for any "
+                "species because species don't occur everywhere."
             )
             st.caption(
                 "🟢 Data rich · 🟡 Sparse · 🟠 Very sparse · "
-                "🔴 Only 1–2 records in cell. "
-                "Dark = no records in GBIF for this species."
+                "🔴 Only 1–2 records in cell · "
+                "Dark = no records in GBIF for this species"
             )
 
             gap_stats = get_gap_stats(df)
@@ -1443,8 +1444,11 @@ if mode == "Species Analysis":
                 gap_map = build_gap_map(df)
                 if gap_map:
                     st_folium(
-                        gap_map, width=None, height=500,
-                        returned_objects=[]
+                        gap_map,
+                        width=None,
+                        height=500,
+                        returned_objects=[],
+                        key="map_gap"
                     )
                 else:
                     st.error("Could not build gap map.")
@@ -1844,15 +1848,15 @@ elif mode == "Batch Comparison":
 
             prog.progress(1.0, text="Done!")
             prog.empty()
-            st.session_state["batch_results"] = results
+            st.session_state["batch_results"]        = results
             st.session_state["batch_year_from_used"] = b_yr_from
             st.session_state["batch_year_to_used"]   = b_yr_to
-            st.session_state["batch_limit_used"]      = b_limit
+            st.session_state["batch_limit_used"]     = b_limit
 
     if "batch_results" in st.session_state:
-        results  = st.session_state["batch_results"]
-        ok       = [r for r in results if r["error"] is None]
-        failed   = [r for r in results if r["error"] is not None]
+        results = st.session_state["batch_results"]
+        ok      = [r for r in results if r["error"] is None]
+        failed  = [r for r in results if r["error"] is not None]
 
         b_yr_from_used = st.session_state.get(
             "batch_year_from_used", 1900
@@ -1865,8 +1869,8 @@ elif mode == "Batch Comparison":
         )
 
         st.caption(
-            f"Results for year range: **{b_yr_from_used}–"
-            f"{b_yr_to_used}** · "
+            f"Results for year range: "
+            f"**{b_yr_from_used}–{b_yr_to_used}** · "
             f"{b_limit_used} records per species"
         )
 
@@ -1878,7 +1882,6 @@ elif mode == "Batch Comparison":
                 )
 
         if ok:
-            # score cards
             st.markdown(
                 '<p class="section-header">'
                 'Health Score Comparison</p>',
@@ -1914,7 +1917,6 @@ elif mode == "Batch Comparison":
                     </div>
                     """, unsafe_allow_html=True)
 
-            # comparison table
             st.markdown(
                 '<p class="section-header">'
                 'Full Comparison Table</p>',
@@ -1946,7 +1948,6 @@ elif mode == "Batch Comparison":
                 hide_index=True
             )
 
-            # grouped bar chart
             st.markdown(
                 '<p class="section-header">'
                 'Visual Comparison</p>',
