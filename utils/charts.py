@@ -26,7 +26,9 @@ def chart_records_per_year(df):
         ))
 
         if len(year_counts) >= 3:
-            z = np.polyfit(year_counts["year"], year_counts["count"], 1)
+            z = np.polyfit(
+                year_counts["year"], year_counts["count"], 1
+            )
             p = np.poly1d(z)
             fig.add_trace(go.Scatter(
                 x=year_counts["year"],
@@ -78,7 +80,9 @@ def chart_records_per_month(df):
             title="Records per Month",
             labels={"month_name": "Month", "count": "Records"},
             color_discrete_sequence=["#58A6FF"],
-            category_orders={"month_name": list(month_names.values())}
+            category_orders={
+                "month_name": list(month_names.values())
+            }
         )
         fig.update_layout(
             plot_bgcolor="#161B22",
@@ -96,7 +100,9 @@ def chart_basis_of_record(df):
         if "basisOfRecord" not in df.columns:
             return None
 
-        basis_counts = df["basisOfRecord"].value_counts().reset_index()
+        basis_counts = (
+            df["basisOfRecord"].value_counts().reset_index()
+        )
         basis_counts.columns = ["basis", "count"]
 
         fig = px.pie(
@@ -152,8 +158,7 @@ def chart_country_density(df):
     """
     Observation Density Chart — country contribution as % of total.
     Shows top 15 countries as a horizontal bar chart with
-    percentage labels. Better than raw counts for comparing
-    relative contributions.
+    percentage labels.
     """
     try:
         if "country" not in df.columns:
@@ -165,14 +170,13 @@ def chart_country_density(df):
         if counts.empty:
             return None
 
-        pct    = (counts / total * 100).round(1)
+        pct      = (counts / total * 100).round(1)
         chart_df = pd.DataFrame({
             "country": counts.index,
             "records": counts.values,
             "pct"    : pct.values
         })
 
-        # color gradient from most to least records
         chart_df = chart_df.sort_values("pct", ascending=True)
 
         fig = go.Figure()
@@ -192,7 +196,9 @@ def chart_country_density(df):
             ),
             text=[
                 f"{p}%  ({r:,} records)"
-                for p, r in zip(chart_df["pct"], chart_df["records"])
+                for p, r in zip(
+                    chart_df["pct"], chart_df["records"]
+                )
             ],
             textposition="outside",
             textfont=dict(color="#8B949E", size=11),
@@ -236,7 +242,8 @@ def chart_decade_breakdown(df):
             (df_year["year"] // 10 * 10).astype(str) + "s"
         )
         decade_counts = (
-            df_year.groupby("decade").size().reset_index(name="count")
+            df_year.groupby("decade").size()
+            .reset_index(name="count")
         )
         decade_counts = decade_counts.sort_values("decade")
 
@@ -267,7 +274,8 @@ def get_temporal_stats(df):
 
         df_year["year"] = df_year["year"].astype(int)
         year_counts = (
-            df_year.groupby("year").size().reset_index(name="count")
+            df_year.groupby("year").size()
+            .reset_index(name="count")
         )
 
         all_years = set(range(
@@ -291,7 +299,9 @@ def get_temporal_stats(df):
             gaps.append((start, end))
 
         if len(year_counts) >= 3:
-            z     = np.polyfit(year_counts["year"], year_counts["count"], 1)
+            z     = np.polyfit(
+                year_counts["year"], year_counts["count"], 1
+            )
             trend = "increasing" if z[0] > 0 else "decreasing"
         else:
             trend = "insufficient data"
@@ -301,7 +311,9 @@ def get_temporal_stats(df):
         cs_surge = post > pre * 3
 
         current_year = df_year["year"].max()
-        recent_count = df_year[df_year["year"] >= current_year - 5].shape[0]
+        recent_count = (
+            df_year[df_year["year"] >= current_year - 5].shape[0]
+        )
         recent_pct   = round(recent_count / len(df_year) * 100, 1)
 
         return {
@@ -311,12 +323,16 @@ def get_temporal_stats(df):
                 df_year["year"].max() - df_year["year"].min()
             ),
             "gap_count"  : len(gap_years),
-            "major_gaps" : [(s, e) for s, e in gaps if e - s >= 4],
+            "major_gaps" : [
+                (s, e) for s, e in gaps if e - s >= 4
+            ],
             "trend"      : trend,
             "cs_surge"   : cs_surge,
             "recent_pct" : recent_pct,
             "peak_year"  : int(
-                year_counts.loc[year_counts["count"].idxmax(), "year"]
+                year_counts.loc[
+                    year_counts["count"].idxmax(), "year"
+                ]
             ),
             "peak_count" : int(year_counts["count"].max())
         }
@@ -328,14 +344,28 @@ def get_temporal_stats(df):
 def get_recommendations(summary, temporal_stats, df):
     recs = []
 
-    if summary.get("duplicate", {}).get("percent", 0) > 5:
+    # ── duplicates — tiered thresholds ────────────────────
+    dup_pct = summary.get("duplicate", {}).get("percent", 0)
+    if dup_pct > 15:
         recs.append({
             "type"   : "warning",
             "title"  : "High Duplicate Rate",
             "message": (
-                f"{summary['duplicate']['percent']}% duplicate records "
-                f"detected. Consider deduplication before running "
-                f"species distribution models."
+                f"{dup_pct}% duplicate records detected. "
+                f"Deduplication is strongly recommended before "
+                f"running species distribution models or "
+                f"population analyses."
+            )
+        })
+    elif dup_pct > 5:
+        recs.append({
+            "type"   : "info",
+            "title"  : "Moderate Duplicate Rate",
+            "message": (
+                f"{dup_pct}% duplicate records detected. "
+                f"This is within an acceptable range for most "
+                f"analyses but consider deduplication for "
+                f"fine-scale work."
             )
         })
 
@@ -344,9 +374,9 @@ def get_recommendations(summary, temporal_stats, df):
             "type"   : "warning",
             "title"  : "Missing Coordinates",
             "message": (
-                f"{summary['missing_coords']['percent']}% of records "
-                f"lack coordinates. These cannot be used in spatial "
-                f"analyses."
+                f"{summary['missing_coords']['percent']}% of "
+                f"records lack coordinates. These cannot be used "
+                f"in spatial analyses."
             )
         })
 
@@ -355,10 +385,10 @@ def get_recommendations(summary, temporal_stats, df):
             "type"   : "warning",
             "title"  : "Low Coordinate Precision",
             "message": (
-                f"{summary['low_precision']['percent']}% of records have "
-                f"low coordinate precision (less than 2 decimal places, "
-                f"~1km accuracy). Use caution in fine-scale spatial "
-                f"analyses."
+                f"{summary['low_precision']['percent']}% of records "
+                f"have low coordinate precision (less than 2 decimal "
+                f"places, ~1km accuracy). Use caution in fine-scale "
+                f"spatial analyses."
             )
         })
 
@@ -367,10 +397,10 @@ def get_recommendations(summary, temporal_stats, df):
             "type"   : "warning",
             "title"  : "Country Coordinate Mismatch",
             "message": (
-                f"{summary['country_mismatch']['percent']}% of records "
-                f"have coordinates that fall outside the stated country "
-                f"boundary. These may indicate georeferencing errors or "
-                f"transposed coordinates."
+                f"{summary['country_mismatch']['percent']}% of "
+                f"records have coordinates that fall outside the "
+                f"stated country boundary. These may indicate "
+                f"georeferencing errors or transposed coordinates."
             )
         })
 
@@ -379,9 +409,9 @@ def get_recommendations(summary, temporal_stats, df):
             "type"   : "info",
             "title"  : "Historical Records Present",
             "message": (
-                f"{summary['old_record']['percent']}% of records predate "
-                f"1900. Verify if historical data is appropriate for "
-                f"your analysis."
+                f"{summary['old_record']['percent']}% of records "
+                f"predate 1900. Verify if historical data is "
+                f"appropriate for your analysis."
             )
         })
 
@@ -391,9 +421,9 @@ def get_recommendations(summary, temporal_stats, df):
                 "type"   : "warning",
                 "title"  : "Temporal Gaps Detected",
                 "message": (
-                    f"{temporal_stats['gap_count']} years with no recorded "
-                    f"observations. Data may not reflect continuous "
-                    f"population monitoring."
+                    f"{temporal_stats['gap_count']} years with no "
+                    f"recorded observations. Data may not reflect "
+                    f"continuous population monitoring."
                 )
             })
 
@@ -402,8 +432,8 @@ def get_recommendations(summary, temporal_stats, df):
                 "type"   : "info",
                 "title"  : "Decreasing Recording Trend",
                 "message": (
-                    "Data collection appears to be declining over time. "
-                    "Recent records may be underrepresented."
+                    "Data collection appears to be declining over "
+                    "time. Recent records may be underrepresented."
                 )
             })
 
@@ -412,9 +442,10 @@ def get_recommendations(summary, temporal_stats, df):
                 "type"   : "success",
                 "title"  : "Citizen Science Contribution",
                 "message": (
-                    "Significant increase in records post-2008, likely "
-                    "reflecting citizen science platforms like iNaturalist. "
-                    "Consider basis of record when filtering."
+                    "Significant increase in records post-2008, "
+                    "likely reflecting citizen science platforms "
+                    "like iNaturalist. Consider basis of record "
+                    "when filtering."
                 )
             })
 
@@ -423,9 +454,9 @@ def get_recommendations(summary, temporal_stats, df):
                 "type"   : "warning",
                 "title"  : "Low Recent Activity",
                 "message": (
-                    f"Only {temporal_stats['recent_pct']}% of records are "
-                    f"from the last 5 years. Current distribution may "
-                    f"differ from data."
+                    f"Only {temporal_stats['recent_pct']}% of "
+                    f"records are from the last 5 years. Current "
+                    f"distribution may differ from data."
                 )
             })
 
@@ -435,8 +466,9 @@ def get_recommendations(summary, temporal_stats, df):
             "type"   : "success",
             "title"  : "High Data Quality",
             "message": (
-                f"{clean_pct}% of records passed all quality checks. "
-                f"This dataset is suitable for most analyses."
+                f"{clean_pct}% of records passed all quality "
+                f"checks. This dataset is suitable for most "
+                f"analyses."
             )
         })
 
@@ -445,8 +477,8 @@ def get_recommendations(summary, temporal_stats, df):
             "type"   : "success",
             "title"  : "Data Looks Good",
             "message": (
-                "No major issues detected. Always verify data fitness "
-                "for your specific use case."
+                "No major issues detected. Always verify data "
+                "fitness for your specific use case."
             )
         })
 
