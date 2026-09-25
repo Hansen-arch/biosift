@@ -1,7 +1,8 @@
 # BioSift — Project Continuity
 
 > Living document. Update after every milestone so any future session can
-> resume with full context. Last updated: 2026-09-25 (v2.0 redesign).
+> resume with full context. Last updated: 2026-09-26 (v2.1 professionalism
+> + interactions + SDM readiness).
 
 ## Project
 
@@ -41,6 +42,35 @@ utils/gbif_fetch.py  occurrence API client, pygbif, cached (pre-existing)
 
 Design language: ink `#0B0F14` bg, emerald `#22C58B` accent, Fraunces
 display serif + Inter, radius-16 cards, hairline `#1F2A38` borders.
+**No emoji anywhere** — user explicitly rejected emoji styling as
+"AI-generated looking". `utils/icons.py` provides inline SVG line icons
+(icon('dna', 20)); st.Page icons use `:material/*:` names; nav uses a
+monogram "B" logo. In-app artifact copy (gap map legend etc.) is
+plain text.
+
+## v2.1 additions (verified live, 2026-09-26)
+
+- **utils/basemaps.py** — six key-free basemaps (Carto Voyager default,
+  Esri World Imagery/Ocean, OpenTopoMap, Positron, dark) +
+  `add_layer_control` for in-map switching. User reported CartoDB tiles
+  now requiring an API key; Esri/OSM/Carto named-tile set chosen as the
+  key-free professional fallback. Wired into maps.py, gaps.py, sdm.py,
+  analysis DBSCAN map.
+- **utils/interactions.py** — GloBI species interactions. CRITICAL API
+  knowledge: the fuzzy `q=` search returns name-resolution artefacts
+  (citations/DOIs in taxon_name fields, `interactsWith` noise); the
+  directional `sourceTaxon=`/`targetTaxon=` params return resolved,
+  semantically-typed records. `_valid_taxon_name()` drops remaining
+  artefacts (URLs, digits, parens, >60 chars, all-caps tokens).
+  Direction normalised so the analysed species is subject (INVERSE map).
+- **utils/fitness.py** — SDM readiness audit: cited gates (Zizka 2020,
+  Marcer 2022, GBIF best practice), two strictness profiles (Standard
+  ≤10 km / Strict ≤1 km), funnel G1–G6 + ≥100 sample gate. Honest-data
+  moment: *P. leo* iNat-style records carry ~31 km stated uncertainty →
+  they fail the 10 km gate legitimately; gate text now explains this
+  (median of failing records, source-typical, cites Zizka 2022).
+- Analysis page now has 8 tabs incl. Interactions + SDM Readiness;
+  reppack report JSON carries `sdm_readiness` + `interactions` blocks.
 
 ## Judged working (verified live via CDP audit, 2026-09-25)
 

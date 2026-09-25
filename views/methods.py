@@ -10,6 +10,51 @@ from utils.theme import C
 from utils.bdq import BDQ, ORDER, citation_note
 
 
+INTERACTIONS_ROWS = [
+    ("Data source",
+     "GloBI — Global Biotic Interactions (Poelen et al. 2014, Ecological "
+     "Informatics)",
+     "Interaction records are queried via GloBI's directional taxon "
+     "parameters (sourceTaxon=, targetTaxon=), which return resolved, "
+     "semantically-typed records. The fuzzy q= search is deliberately "
+     "avoided: it returns name-resolution artefacts (citations and DOIs "
+     "in taxon fields)."),
+    ("Artefact filtering",
+     "Taxon-name validation",
+     "Records whose taxon fields fail plausibility checks (URLs, DOIs, "
+     "digits, parenthesis, citation-length strings, all-caps dataset "
+     "tokens) are dropped before aggregation."),
+    ("Direction normalisation",
+     "OBO relationship vocabulary",
+     "When the analysed species appears as the object of a relationship, "
+     "the interaction is inverted (e.g. preysOn → preyedUponBy) so the "
+     "species card always reads as subject."),
+    ("Deduplication",
+     "(direction, partner) pair",
+     "Multiple studies reporting the same pairwise interaction collapse "
+     "to one record; sources are retained in the full table."),
+]
+
+FITNESS_ROWS = [
+    ("Standard profile",
+     "Coordinate uncertainty ≤ 10 km",
+     "Mirrors the moderate settings of Zizka et al. 2020's automated "
+     "cleaning pipeline — suitable for exploratory distribution work."),
+    ("Strict profile",
+     "Coordinate uncertainty ≤ 1 km",
+     "Publication-grade end of the same sensitivity analysis; required "
+     "for fine-scale SDM and Red List assessments."),
+    ("Uncertainty gate",
+     "Marcer et al. 2022",
+     "Records with unknown coordinateUncertaintyInMeters are flagged "
+     "rather than silently passed — uncertainty is the dominant error "
+     "axis for SDM fitness."),
+    ("Minimum sample gate",
+     "≥ 100 usable records",
+     "Correlative SDMs generally require at least 100 unique, "
+     "well-distributed records; below that, presence-only methods only."),
+]
+
 CHECKS_ROWS = [
     ("Missing coordinates",
      "VALIDATION_DECIMALLATITUDE_NOTEMPTY · VALIDATION_DECIMALLONGITUDE_NOTEMPTY",
@@ -95,6 +140,34 @@ def render():
             for c, b, d in CHECKS_ROWS]
     st.dataframe(pd.DataFrame(rows), use_container_width=True,
                  hide_index=True)
+
+    # ── interactions methodology ──────────────────────────
+    T.section("Species interactions methodology (GloBI)")
+    irows = [{"Aspect": a, "Approach": b, "Detail": d}
+             for a, b, d in INTERACTIONS_ROWS]
+    st.dataframe(pd.DataFrame(irows), use_container_width=True,
+                 hide_index=True)
+
+    # ── SDM readiness methodology ─────────────────────────
+    T.section("SDM readiness methodology")
+    frows = [{"Component": a, "Threshold": b, "Rationale": d}
+             for a, b, d in FITNESS_ROWS]
+    st.dataframe(pd.DataFrame(frows), use_container_width=True,
+                 hide_index=True)
+    for cite in (
+        "Zizka, A. et al. (2020). No one-size-fits-all solution to clean "
+        "GBIF. Ecography, 43, 24–35. doi:10.1111/ecog.04895",
+        "Marcer, A. et al. (2022). Uncertainty matters. Ecography, 2022, "
+        "e06025. doi:10.1111/ecog.06025",
+        "Poelen, J.H., Simons, J.D. & Mungall, C.J. (2014). Global biotic "
+        "interactions: an open infrastructure to share and analyze "
+        "species-interaction data. Ecological Informatics, 24, 148–159.",
+    ):
+        st.markdown(
+            f'<div class="alert a-info" style="font-size:0.8rem">'
+            f'{cite}</div>',
+            unsafe_allow_html=True,
+        )
 
     # ── standards ─────────────────────────────────────────
     T.section("Standards & alignment")

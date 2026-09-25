@@ -5,40 +5,41 @@ BioSift — Home / landing page
 import streamlit as st
 
 import utils.theme as T
+from utils.icons import icon
 
 FEATURES = [
     {
-        "icon": "🧬",
+        "icon": "dna",
         "title": "Standards-aligned quality audit",
         "desc": "Ten automated checks mapped to the official TDWG BDQ test "
                 "vocabulary — the same language GBIF publishers and nodes use.",
     },
     {
-        "icon": "📊",
+        "icon": "pulse",
         "title": "GBIF-wide benchmarking",
         "desc": "Is your sample bad — or is every sample like this? Defect "
                 "rates compared against the full GBIF population, live.",
     },
     {
-        "icon": "🗺️",
-        "title": "Spatial intelligence",
-        "desc": "Point maps, heatmaps, DBSCAN outlier detection, SDM preview "
-                "and a 10° grid gap analysis — five map modes, one click apart.",
+        "icon": "globe",
+        "title": "Species interactions (GloBI)",
+        "desc": "Predator–prey, pollination and symbiosis records alongside "
+                "distribution data — a GBIF priority data area, surfaced here.",
     },
     {
-        "icon": "⏱️",
-        "title": "Temporal diagnosis",
-        "desc": "Trends, citizen-science surge detection, peak years and "
-                "major gap identification across decades of records.",
+        "icon": "target",
+        "title": "SDM readiness audit",
+        "desc": "Journal-cited filtering gates (Zizka 2020, Marcer 2022) with "
+                "disclosed strictness profiles — know before you model.",
     },
     {
-        "icon": "🧾",
+        "icon": "download",
         "title": "Reproducibility Pack",
         "desc": "One click exports a reviewer-ready ZIP: report JSON, "
                 "methods text, citations, CSVs, DwC-A and the exact API recipe.",
     },
     {
-        "icon": "📜",
+        "icon": "book",
         "title": "Publication-grade outputs",
         "desc": "Branded PDF quality report, Darwin Core Archive, GBIF data "
                 "cube SQL — built for theses, DMPs and indicator pipelines.",
@@ -58,16 +59,16 @@ def render():
 
     st.markdown(f"""
     <div class="hero">
-        <div class="hero-kicker">⚡ GBIF Ebbe Nielsen Challenge 2026</div>
+        <div class="hero-kicker">{icon('spark', 14)} GBIF Ebbe Nielsen Challenge 2026</div>
         <h1 class="hero-title">Know your biodiversity data<br>before it lets you down.</h1>
         <p class="hero-sub">BioSift audits GBIF occurrence data in seconds — scoring health,
         benchmarking against the global population, and exporting
         standards-aligned evidence packs that reviewers and indicator pipelines can trust.</p>
         <div class="hero-actions">
-            <span class="hero-pill">🌿 10 automated quality checks</span>
-            <span class="hero-pill">📏 TDWG BDQ aligned</span>
-            <span class="hero-pill">🔬 GBIF-wide benchmarking</span>
-            <span class="hero-pill">📦 Reproducibility Pack</span>
+            <span class="hero-pill">{icon('shield', 14)} 10 automated quality checks</span>
+            <span class="hero-pill">{icon('ruler', 14)} TDWG BDQ aligned</span>
+            <span class="hero-pill">{icon('pulse', 14)} GBIF-wide benchmarking</span>
+            <span class="hero-pill">{icon('download', 14)} Reproducibility Pack</span>
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -78,7 +79,8 @@ def render():
         with cols[i % 3]:
             st.markdown(
                 f'<div class="card" style="min-height:150px">'
-                f'<div style="font-size:1.5rem;margin-bottom:0.5rem">{f["icon"]}</div>'
+                f'<div class="ic" style="margin-bottom:0.6rem">'
+                f'{icon(f["icon"], 22)}</div>'
                 f'<div class="card-t">{f["title"]}</div>'
                 f'<div class="card-d">{f["desc"]}</div></div>',
                 unsafe_allow_html=True,

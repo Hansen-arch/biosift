@@ -2,7 +2,14 @@ import folium
 import pandas as pd
 from folium.plugins import HeatMap
 
-def build_map(df, flags, map_type="points"):
+from utils.basemaps import basemap, add_layer_control
+
+# palette
+CLEAN = "#22C58B"
+FLAGGED = "#F2555A"
+
+
+def build_map(df, flags, map_type="points", basemap_name=None):
     try:
         lat_center = df["decimalLatitude"].dropna().mean()
         lon_center = df["decimalLongitude"].dropna().mean()
@@ -11,11 +18,7 @@ def build_map(df, flags, map_type="points"):
     except Exception:
         lat_center, lon_center = 0, 0
 
-    m = folium.Map(
-        location=[lat_center, lon_center],
-        zoom_start=4,
-        tiles="CartoDB dark_matter"
-    )
+    m = basemap([lat_center, lon_center], zoom=4, name=basemap_name)
 
     if map_type == "heatmap":
         heat_data = []
@@ -45,11 +48,11 @@ def build_map(df, flags, map_type="points"):
                     continue
 
                 is_flagged = flags.loc[idx, "any_flag"]
-                color      = "#F85149" if is_flagged else "#3FB950"
-                status     = "Flagged" if is_flagged else "Clean"
+                color = FLAGGED if is_flagged else CLEAN
+                status = "Flagged" if is_flagged else "Clean"
 
                 popup_text = f"""
-                <div style="font-family:sans-serif;font-size:12px;
+                <div style="font-family:Inter,sans-serif;font-size:12px;
                             min-width:150px">
                     <b>{row.get('species', 'Unknown')}</b><br>
                     <span style="color:#888">Country:</span>
@@ -76,4 +79,5 @@ def build_map(df, flags, map_type="points"):
             except Exception:
                 continue
 
+    add_layer_control(m)
     return m

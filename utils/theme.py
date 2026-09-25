@@ -168,6 +168,12 @@ a {{ color: {C['blue']}; text-decoration: none; }}
 .f-fair  {{ background: linear-gradient(90deg, #9C6F1D, {C['amber']}); }}
 .f-poor  {{ background: linear-gradient(90deg, #8F2B30, {C['red']}); }}
 
+/* ── inline svg icons ── */
+.ic {{ color: {C['accent']}; display: inline-flex; align-items: center; }}
+.hero-pill svg, .hero-kicker svg, .metric-label svg {{
+    vertical-align: middle; margin-right: 3px;
+}}
+
 /* ── badges / pills ── */
 .badge {{
     display: inline-flex; align-items: center; gap: 0.35rem;

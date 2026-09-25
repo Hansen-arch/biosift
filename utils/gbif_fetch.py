@@ -16,7 +16,7 @@ COLS = [
     "decimalLatitude", "decimalLongitude",
     "basisOfRecord", "issues", "datasetName",
     "occurrenceID", "eventDate", "countryCode",
-    "media"
+    "media", "coordinateUncertaintyInMeters"
 ]
 
 MAX_PER_REQUEST = 300
