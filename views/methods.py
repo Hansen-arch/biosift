@@ -154,6 +154,31 @@ def render():
              for a, b, d in FITNESS_ROWS]
     st.dataframe(pd.DataFrame(frows), use_container_width=True,
                  hide_index=True)
+
+    # ── distribution & KBA methodology ────────────────────
+    T.section("Distribution metrics & KBA screening")
+    st.dataframe(pd.DataFrame([
+        {"Metric": "EOO — Extent of Occurrence",
+         "Method": "Minimum convex hull in local equirectangular "
+                   "projection, per IUCN Guidelines 4.0",
+         "Caution": "Highly sensitive to outlier/vagrant records — the "
+                    "hull can overstate range (Burgio et al. 2021). "
+                    "BioSift warns when hull area is implausible."},
+        {"Metric": "AOO — Area of Occupancy",
+         "Method": "2×2 km occupancy grid, IUCN Standard 4.0",
+         "Caution": "Sample-size dependent: more records → more occupied "
+                    "cells, so compare only at comparable sampling."},
+        {"Metric": "KBA Criterion B screen",
+         "Method": "B1: EOO ≤ 20,000 km² · B2: AOO ≤ 2,000 km² "
+                   "(IUCN 2016 Global KBA Standard)",
+         "Caution": "Screening only. Formal KBA assessment requires "
+                    "Red List status and stakeholder consultation."},
+        {"Metric": "Geographic co-occurrence",
+         "Method": "1° presence/absence grid Jaccard index between the "
+                   "target and congeneric species (GBIF data)",
+         "Caution": "Observed overlap conflates ecology with sampling "
+                    "effort — read alongside the gap analysis."},
+    ]), use_container_width=True, hide_index=True)
     for cite in (
         "Zizka, A. et al. (2020). No one-size-fits-all solution to clean "
         "GBIF. Ecography, 43, 24–35. doi:10.1111/ecog.04895",

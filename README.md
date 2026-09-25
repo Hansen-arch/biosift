@@ -1,8 +1,6 @@
-# 🌿 BioSift
+# BioSift
 
-> Biodiversity data intelligence platform powered by GBIF
-
-Built for the **2026 GBIF Ebbe Nielsen Challenge**
+> Biodiversity data quality and distribution-intelligence platform powered by GBIF
 
 [![Live Demo](https://img.shields.io/badge/live-demo-22C58B?style=flat-square)](https://biosift-gbif.streamlit.app)
 [![Python](https://img.shields.io/badge/python-3.12-4DA3FF?style=flat-square)](https://www.python.org)
@@ -11,7 +9,7 @@ Built for the **2026 GBIF Ebbe Nielsen Challenge**
 
 ---
 
-## 🔗 Live demo
+## Live demo
 
 **[biosift-gbif.streamlit.app](https://biosift-gbif.streamlit.app)** — no
 installation required.
@@ -96,13 +94,13 @@ the source.**
   detection, peak-year and major-gap insights, seasonal patterns
 
 ### Publication-grade exports
-- **📦 Reproducibility Pack (ZIP)** — `biosift_report.json` (versioned
+- **Reproducibility Pack (ZIP)** — `biosift_report.json` (versioned
   machine-readable schema), paste-ready methods text, APA + BibTeX
   citations, full/clean CSVs, the standards-compliant DwC-A, and
   `recipe.json` containing the exact GBIF API requests to regenerate the
   sample
-- **📄 Branded PDF quality report** for theses, DMPs and grant appendices
-- **🧊 GBIF data-cube SQL** — indicator-grade cube queries targeting the
+- **Branded PDF quality report** for theses, DMPs and grant appendices
+- **GBIF data-cube SQL** — indicator-grade cube queries targeting the
   GBIF SQL download service used by EU B-Cubed pipelines
 
 ### Batch Comparison & Publisher Report Card

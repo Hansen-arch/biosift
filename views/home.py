@@ -59,16 +59,16 @@ def render():
 
     st.markdown(f"""
     <div class="hero">
-        <div class="hero-kicker">{icon('spark', 14)} GBIF Ebbe Nielsen Challenge 2026</div>
-        <h1 class="hero-title">Know your biodiversity data<br>before it lets you down.</h1>
-        <p class="hero-sub">BioSift audits GBIF occurrence data in seconds — scoring health,
-        benchmarking against the global population, and exporting
-        standards-aligned evidence packs that reviewers and indicator pipelines can trust.</p>
+        <div class="hero-kicker">Biodiversity data quality platform</div>
+        <h1 class="hero-title">Rigorous quality control<br>for GBIF occurrence data.</h1>
+        <p class="hero-sub">BioSift audits species occurrence records against TDWG BDQ tests,
+        benchmarks defect rates against the global GBIF population, and exports
+        standards-aligned evidence packs for research, assessment and reporting.</p>
         <div class="hero-actions">
-            <span class="hero-pill">{icon('shield', 14)} 10 automated quality checks</span>
-            <span class="hero-pill">{icon('ruler', 14)} TDWG BDQ aligned</span>
-            <span class="hero-pill">{icon('pulse', 14)} GBIF-wide benchmarking</span>
-            <span class="hero-pill">{icon('download', 14)} Reproducibility Pack</span>
+            <span class="hero-pill">10 automated quality checks</span>
+            <span class="hero-pill">TDWG BDQ aligned</span>
+            <span class="hero-pill">GBIF-wide benchmarking</span>
+            <span class="hero-pill">Reproducible exports</span>
         </div>
     </div>
     """, unsafe_allow_html=True)

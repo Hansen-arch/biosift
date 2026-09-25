@@ -39,6 +39,10 @@ from utils.fitness import (
 from utils.interactions import (
     fetch_interactions, summarize_interactions,
 )
+from utils.cooccurrence import (
+    fetch_genus_assemblage, build_cooccurrence, COO_CITATION,
+)
+from utils.predict import run_distribution_metrics
 from utils.icons import icon
 from utils.basemaps import BASEMAPS, basemap
 
@@ -60,6 +64,11 @@ def fix_species_name(name):
         [parts[0].capitalize()] + [p.lower() for p in parts[1:]]
     )
     return corrected, corrected != name
+
+
+def genus_df_empty():
+    import pandas as pd
+    return pd.DataFrame(columns=["species", "records"])
 
 
 def clear_results():
@@ -196,6 +205,12 @@ def _run_analysis(species_input, year_from, year_to, basis_filter, limit,
     multimedia = get_multimedia_stats(df)
     completeness = get_completeness_score(df)
 
+    progress.progress(0.9, text="Building ecological context…")
+    genus = species_input.split()[0] if species_input else ""
+    genus_df = fetch_genus_assemblage(
+        genus, year_from=year_from, year_to=year_to
+    ) if genus else genus_df_empty()
+
     progress.progress(1.0, text="Done!")
     progress.empty()
 
@@ -205,6 +220,7 @@ def _run_analysis(species_input, year_from, year_to, basis_filter, limit,
         "reliability": reliability, "species_info": species_info,
         "multimedia": multimedia, "completeness": completeness,
         "pop_stats": pop_stats, "basemap": basemap_name,
+        "genus_df": genus_df,
         "year_from": year_from, "year_to": year_to,
         "basis_filter": basis_filter, "limit": limit,
     })
@@ -386,10 +402,10 @@ def _render_results():
         T.alert(kind, title, msg)
 
     # ── tabs ───────────────────────────────────────────────
-    tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9 = st.tabs([
         "Overview", "Occurrence Map", "Temporal", "Charts",
-        "Interactions", "SDM Readiness", "Gap Analysis",
-        "Data & Export",
+        "Ecological Community", "Distribution & KBA", "SDM Readiness",
+        "Gap Analysis", "Data & Export",
     ])
 
     with tab1:
@@ -407,15 +423,18 @@ def _render_results():
         _tab_charts(df)
 
     with tab5:
-        _tab_interactions(species, species_info)
+        _tab_community(species, st.session_state.get("genus_df"), df)
 
     with tab6:
-        _tab_fitness(df, flags)
+        _tab_kba(df, species_info)
 
     with tab7:
-        _tab_gaps(df, st.session_state.get("basemap"))
+        _tab_fitness(df, flags)
 
     with tab8:
+        _tab_gaps(df, st.session_state.get("basemap"))
+
+    with tab9:
         _tab_export(df, clean_df, flags, summary, score, species,
                     reliability, completeness, species_info, yr_from,
                     yr_to, basis_used, total, pop_stats)
@@ -553,58 +572,137 @@ def _tab_overview(df, flags, summary, score, completeness, multimedia,
         st.info("Dataset breakdown unavailable — datasetName missing.")
 
 
-def _tab_interactions(species, species_info):
-    """GloBI species-interactions explorer."""
+def _tab_community(species, genus_df, target_df):
+    """Ecological community context: GloBI interactions + congeneric
+    co-occurrence."""
     st.caption(
-        "Interaction data from GloBI (Global Biotic Interactions, Poelen "
-        "et al. 2014) — the open aggregation the GBIF Work Programme 2026 "
-        "names a priority data area."
+        "Two complementary views of ecological relationships: documented "
+        "interactions (GloBI, Poelen et al. 2014) and observed geographic "
+        "co-occurrence with congeners (GBIF, 1° grid Jaccard overlap — "
+        "Jaccard 1901; Real & Vargas 1996)."
     )
-    with st.spinner("Querying GloBI…"):
-        interactions = fetch_interactions(species)
 
-    if not interactions:
+    left, right = st.columns(2)
+
+    # ── GloBI interactions ────────────────────────────────
+    with left:
+        T.section("Documented interactions (GloBI)")
+        with st.spinner("Querying GloBI…"):
+            interactions = fetch_interactions(species)
+        if not interactions:
+            st.info(
+                f"No interaction records indexed by GloBI for *{species}*.")
+        else:
+            by_type, partners = summarize_interactions(interactions)
+            for row in by_type[:8]:
+                st.markdown(
+                    f'<div style="display:flex;justify-content:'
+                    f'space-between;padding:0.4rem 0;'
+                    f'border-bottom:1px solid {C["line"]}">'
+                    f'<span style="font-size:0.86rem">'
+                    f'{row["label"]}</span>'
+                    f'<span class="badge">{row["count"]}</span></div>',
+                    unsafe_allow_html=True,
+                )
+            with st.expander(f"All {len(interactions)} records"):
+                st.dataframe(
+                    pd.DataFrame([{
+                        "Relationship": r["label"],
+                        "Partner": r["other"],
+                        "Source": r["citation"] or r["source"] or "—",
+                    } for r in interactions]),
+                    use_container_width=True, hide_index=True,
+                )
+
+    # ── Congeneric co-occurrence ──────────────────────────
+    with right:
+        T.section("Geographic co-occurrence (congeners)")
+        if genus_df is None or genus_df.empty:
+            st.info("No genus-level assemblage data available.")
+        else:
+            coo = build_cooccurrence(species, target_df, genus_df)
+            st.caption(
+                f"Genus *{coo['genus']}* assemblage: "
+                f"{coo['assemblage_size']} species with records. "
+                f"Overlap measured on a 1° presence/absence grid "
+                f"({coo['target_cells']} cells occupied by "
+                f"{species})."
+            )
+            if not coo["partners"]:
+                st.info("No congeneric species with records found.")
+            else:
+                st.dataframe(
+                    pd.DataFrame([{
+                        "Congener": p["species"],
+                        "GBIF records": f"{p['records']:,}",
+                        "Grid cells": p["cells"],
+                        "Jaccard overlap": p["overlap"],
+                        "Shared range": p["jaccard_label"],
+                    } for p in coo["partners"]]),
+                    use_container_width=True, hide_index=True,
+                )
+            st.caption(f"Method citation: {COO_CITATION}")
+
+
+def _tab_kba(df, species_info):
+    """Distribution metrics + KBA Criterion B screening."""
+    st.caption(
+        "Extent of Occurrence and Area of Occupancy computed per IUCN "
+        "guidance, screened against KBA Standard (IUCN 2016) Criterion B. "
+        "Screening only — see caveats."
+    )
+    iucn = (species_info or {}).get("iucn", "")
+    metrics = run_distribution_metrics(df, iucn_category=iucn)
+    if not metrics:
         st.info(
-            f"No interaction records indexed by GloBI for *{species}*. "
-            "Rare and poorly-studied taxa are exactly where interaction "
-            "gaps matter — consider contributing via GloBI's publisher "
-            "pathways."
+            "At least 3 georeferenced records are needed for "
+            "distribution metrics."
         )
         return
 
-    by_type, partners = summarize_interactions(interactions)
+    mc1, mc2, mc3 = st.columns(3)
+    T.metric_card("Extent of Occurrence",
+                  f"{metrics['eoo_km2']:,.0f} km²",
+                  f"convex hull · {metrics['hull_points']} hull points",
+                  col=mc1)
+    T.metric_card("Area of Occupancy",
+                  f"{metrics['aoo_km2']:,.0f} km²",
+                  f"{metrics['aoo_cells']} occupied 2×2 km cells",
+                  col=mc2)
 
-    t1, t2 = st.columns([1, 2])
-    with t1:
-        T.section("Interaction types")
-        for row in by_type[:8]:
-            st.markdown(
-                f'<div style="display:flex;justify-content:space-between;'
-                f'padding:0.4rem 0;border-bottom:1px solid {C["line"]}">'
-                f'<span style="font-size:0.86rem">{row["label"]}</span>'
-                f'<span class="badge">{row["count"]}</span></div>',
-                unsafe_allow_html=True,
-            )
-    with t2:
-        T.section("Top interaction partners")
-        partner_df = pd.DataFrame(
-            [{"Partner": p["partner"], "Relationship": p["kinds"]}
-             for p in partners[:15]]
+    kba = metrics["kba"]
+    if kba["b1_meets"] or kba["b2_meets"]:
+        tone, label = "ok", "Criterion B candidate"
+        detail = ", ".join(
+            [n for n, m in (("B1 (EOO)", kba["b1_meets"]),
+                            ("B2 (AOO)", kba["b2_meets"])) if m]
         )
-        st.dataframe(partner_df, use_container_width=True,
-                     hide_index=True)
+    else:
+        tone, label = "", "No Criterion B screen"
+        detail = "EOO and AOO exceed B thresholds"
+    mc3.markdown(
+        f'<div class="metric"><div class="metric-label">'
+        f'KBA Criterion B screen</div>'
+        f'<div style="margin-top:0.5rem">{T.badge(label, tone=tone)}</div>'
+        f'<div class="metric-note">{detail}</div>'
+        f'<div class="metric-note">{kba["b1_note"]}<br>'
+        f'{kba["b2_note"]}</div></div>',
+        unsafe_allow_html=True,
+    )
 
-    with st.expander(f"All {len(interactions)} interaction records "
-                     f"(with sources)"):
-        full = pd.DataFrame([
-            {
-                "Relationship": r["label"],
-                "Partner": r["other"],
-                "Source": r["citation"] or r["source"] or "—",
-            }
-            for r in interactions
-        ])
-        st.dataframe(full, use_container_width=True, hide_index=True)
+    if metrics["hull_warnings"]:
+        for w in metrics["hull_warnings"]:
+            T.alert("warn", "EOO caution", w)
+
+    T.alert("info", "Read this before citing", metrics["caveat"])
+
+    T.section("Method citations")
+    for cite in metrics["citations"].values():
+        st.markdown(
+            f'<div class="alert a-info" style="font-size:0.8rem">'
+            f'{cite}</div>',
+            unsafe_allow_html=True,
+        )
 
 
 def _tab_fitness(df, flags):

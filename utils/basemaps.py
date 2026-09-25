@@ -1,84 +1,80 @@
 """
-Professional key-free basemaps
-──────────────────────────────
-Curated basemap registry + folium factory. All providers below work
-without an API key. Esri's World Imagery / Gray Canvas / Ocean basemaps
-are free with attribution; OSM is ODbL.
+Professional key-free basemaps — explicit XYZ tile URLs.
 
-Every map in BioSift is created through basemap() so the look stays
-consistent, and any key-requiring provider would be opt-in only.
+No vendor tile-name aliases (those are what broke rendering), no API
+keys. Every URL below is a public, key-free endpoint:
+  - OSM standard tiles (ODbL)
+  - Esri ArcGIS Online World Imagery / Ocean (free with attribution)
+  - OpenTopoMap (CC-BY-SA)
+  - CARTO Positron / Dark Matter (free with attribution)
 """
 
 import folium
 
-# name -> (folium tiles id, attribution, max_zoom, note)
+# name -> (url template, attribution, max_zoom)
 BASEMAPS = {
-    "Terrain (default)": (
-        "CartoDB Voyager",
-        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> '
-        '&copy; <a href="https://carto.com/attributions">CARTO</a>',
+    "Minimal Gray (default)": (
+        "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png",
+        "&copy; OpenStreetMap contributors &copy; CARTO",
         19,
     ),
-    "Satellite": (
-        "Esri.WorldImagery",
-        "Tiles &copy; Esri — Source: Esri, i-cubed, USDA, USGS, AEX, "
-        "GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP",
+    "OpenStreetMap": (
+        "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+        "&copy; OpenStreetMap contributors",
         19,
     ),
-    "Topographic": (
-        "OpenTopoMap",
-        "&copy; <a href='https://opentopomap.org'>OpenTopoMap</a> (CC-BY-SA)",
+    "Satellite (Esri World Imagery)": (
+        "https://server.arcgisonline.com/ArcGIS/rest/services/"
+        "World_Imagery/MapServer/tile/{z}/{y}/{x}",
+        "Esri, Maxar, Earthstar Geographics",
+        18,
+    ),
+    "Topographic (OpenTopoMap)": (
+        "https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png",
+        "&copy; OpenTopoMap (CC-BY-SA)",
         17,
     ),
-    "Minimal Gray": (
-        "CartoDB Positron",
-        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> '
-        '&copy; <a href="https://carto.com/attributions">CARTO</a>',
-        19,
-    ),
-    "Ocean & Terrain": (
-        "Esri.OceanBasemap",
-        "Tiles &copy; Esri — Sources: GEBCO, NOAA, National Geographic, "
-        "DeLorme, NAVTEQ",
-        13,
-    ),
     "Dark (reference)": (
-        "CartoDB dark_matter",
-        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> '
-        '&copy; <a href="https://carto.com/attributions">CARTO</a>',
+        "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png",
+        "&copy; OpenStreetMap contributors &copy; CARTO",
         19,
+    ),
+    "Ocean (Esri)": (
+        "https://server.arcgisonline.com/ArcGIS/rest/services/"
+        "Ocean/World_Ocean_Base/MapServer/tile/{z}/{y}/{x}",
+        "Esri, GEBCO, NOAA",
+        13,
     ),
 }
 
-DEFAULT = "Terrain (default)"
+DEFAULT = "Minimal Gray (default)"
 
 
-def basemap(location, zoom=4, name=None):
-    """Create a folium.Map on the chosen basemap (defaults to Terrain)."""
-    if name and name in BASEMAPS:
-        DEFAULT_CHOICE = name
-    else:
-        DEFAULT_CHOICE = DEFAULT
-    tiles, attr, max_zoom = BASEMAPS[DEFAULT_CHOICE]
-    return folium.Map(
-        location=location,
-        zoom_start=zoom,
-        tiles=tiles,
-        attr=attr,
-        max_zoom=max_zoom,
-        control_scale=True,
+def _tile_layer(name, active=False):
+    url, attr, max_zoom = BASEMAPS[name]
+    return folium.TileLayer(
+        tiles=url, attr=attr, name=name, max_zoom=max_zoom,
+        control=True, show=active,
     )
 
 
-def add_layer_control(m, name=None):
-    """Attach a layer switcher so users can change basemap in-place."""
-    from folium import TileLayer
-    for label, (tiles, attr, max_zoom) in BASEMAPS.items():
-        try:
-            TileLayer(
-                tiles=tiles, attr=attr, name=label,
-                max_zoom=max_zoom, control=True,
-            ).add_to(m)
-        except Exception:
-            continue
+def basemap(location, zoom=4, name=None):
+    """Create a folium.Map with the chosen basemap pre-loaded."""
+    active = name if name in BASEMAPS else DEFAULT
+    m = folium.Map(location=location, zoom_start=zoom, tiles=None,
+                   control_scale=True)
+    _tile_layer(active, active=True).add_to(m)
+    return m
+
+
+def add_layer_control(m, active_name=None):
+    """Attach the full basemap switcher (one layer active)."""
+    active = active_name if active_name in BASEMAPS else DEFAULT
+    # remove pre-added active layer to avoid duplicates
+    for key in list(m._children.keys()):
+        child = m._children[key]
+        if isinstance(child, folium.TileLayer):
+            del m._children[key]
+    for name in BASEMAPS:
+        _tile_layer(name, active=(name == active)).add_to(m)
     folium.LayerControl(collapsed=True, position="topright").add_to(m)

@@ -14,7 +14,7 @@ from views.methods import render as methods_render
 
 st.set_page_config(
     page_title="BioSift",
-    page_icon="🌿",
+    page_icon=":material/biotech:",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -54,7 +54,5 @@ nav.run()
 with st.sidebar:
     st.divider()
     st.caption(
-        "Data: [GBIF.org](https://www.gbif.org) · CC-BY\n\n"
-        "Built for the [Ebbe Nielsen Challenge 2026]"
-        "(https://www.gbif.org/ebbe)"
+        "Data: [GBIF.org](https://www.gbif.org) · CC-BY"
     )
