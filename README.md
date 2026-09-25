@@ -122,6 +122,26 @@ the source.**
 Both use the same `utils/` science layer: identical checks, identical
 standards, identical verdicts.
 
+### Deploying the standalone app
+
+Any Docker host runs it as-is:
+
+```bash
+docker compose up --build        # http://localhost:8080
+```
+
+One-click options (auto-detect the Dockerfile):
+
+| Host | Steps |
+|---|---|
+| Railway | New project → Deploy from GitHub repo → done |
+| Render | New Web Service → Docker runtime → port 8080 |
+| Fly.io | `fly launch` → `fly deploy` |
+| Any VPS | `docker compose up -d` behind nginx/Caddy |
+
+No environment variables or API keys are required — the app only talks
+to public GBIF, GloBI and tile endpoints.
+
 ### Standalone API example
 
 ```bash

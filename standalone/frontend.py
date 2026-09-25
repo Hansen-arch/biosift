@@ -3,8 +3,8 @@ BioSift Standalone Frontend — single-file MapLibre GL JS app.
 
 Design notes (professional, non-AI-look):
   - MapLibre GL JS (BSD-3, Mapbox GL v1 fork — no API key, no token)
-  - key-free raster style built from the same verified XYZ endpoints as
-    the Streamlit app (CARTO light + Esri World Imagery + OpenTopoMap)
+  - key-free raster style built from verified XYZ endpoints (Esri Light
+    Gray + World Imagery, OSM, OpenTopoMap — no CARTO, no API keys)
   - inspector layout: fixed left analysis panel, full-height map
   - no emoji, no gradient hero, no decorative icons — monochrome
     SVG line icons only, same visual family as utils/icons.py
@@ -41,9 +41,23 @@ body{
   padding:18px 20px 14px;border-bottom:1px solid var(--line);
 }
 .brand{display:flex;align-items:baseline;gap:10px}
-.brand h1{font-size:18px;font-weight:700;letter-spacing:-.3px}
+.brand h1{font-size:19px;font-weight:700;letter-spacing:-.3px}
 .brand span{font-size:10px;letter-spacing:1.6px;color:var(--faint);
   text-transform:uppercase}
+/* gaia-style capability strip on landing */
+#capabilities{display:none;padding:26px 20px 10px}
+#capabilities .capgrid{display:grid;grid-template-columns:1fr;gap:8px}
+.cap{display:flex;gap:12px;align-items:flex-start;background:var(--card);
+  border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.cap .n{font-size:11px;font-weight:700;color:var(--acc);
+  border:1px solid rgba(34,197,139,.4);border-radius:8px;
+  min-width:22px;height:22px;display:flex;align-items:center;
+  justify-content:center;margin-top:1px}
+.cap .t{font-size:13px;font-weight:600}
+.cap .d{font-size:11px;color:var(--dim);margin-top:1px;line-height:1.45}
+#audience{display:none;padding:8px 20px 20px}
+#audience .aud{display:flex;flex-wrap:wrap;gap:6px}
+#audience .chip{font-size:10.5px}
 #panel .scroll{
   overflow-y:auto;padding:16px 20px 32px;flex:1;
 }
@@ -146,12 +160,39 @@ td.num{text-align:right;font-variant-numeric:tabular-nums;color:var(--dim)}
     <header>
       <div class="brand">
         <h1>BioSift</h1>
-        <span>Standalone</span>
+        <span>Professional Biodiversity Studio</span>
       </div>
       <div class="note" style="margin-top:4px">
         GBIF data-quality analysis · TDWG BDQ aligned
       </div>
     </header>
+    <div id="capabilities">
+      <div class="capgrid">
+        <div class="cap"><div class="n">1</div><div>
+          <div class="t">Audit occurrence data on demand</div>
+          <div class="d">Ten automated checks mapped to the official TDWG BDQ test vocabulary.</div></div></div>
+        <div class="cap"><div class="n">2</div><div>
+          <div class="t">Benchmark against the world</div>
+          <div class="d">Defect rates compared live against the full GBIF population.</div></div></div>
+        <div class="cap"><div class="n">3</div><div>
+          <div class="t">Relationships & communities</div>
+          <div class="d">GloBI interactions plus congeneric co-occurrence (Jaccard).</div></div></div>
+        <div class="cap"><div class="n">4</div><div>
+          <div class="t">Predict distribution & carbon</div>
+          <div class="d">EOO/AOO with KBA Criterion B screening; Chave 2014 carbon scenarios for plants.</div></div></div>
+        <div class="cap"><div class="n">5</div><div>
+          <div class="t">Model-ready or nothing</div>
+          <div class="d">SDM readiness gates cite Zizka 2020 and Marcer 2022 — strictness disclosed.</div></div></div>
+      </div>
+    </div>
+    <div id="audience">
+      <div class="aud">
+        <span class="chip ok">Researchers</span>
+        <span class="chip">Data managers</span>
+        <span class="chip">Node staff</span>
+        <span class="chip">Policy analysts</span>
+      </div>
+    </div>
     <div class="scroll">
       <div class="field">
         <label for="species">Scientific name</label>
@@ -194,7 +235,7 @@ td.num{text-align:right;font-variant-numeric:tabular-nums;color:var(--dim)}
         </select>
       </div>
       <button id="run">Run Analysis</button>
-      <div id="status" class="status">Ready.</div>
+      <div id="status" class="status">Search a species to begin.</div>
 
       <div id="results" style="display:none">
         <div class="metrics">
@@ -232,6 +273,9 @@ td.num{text-align:right;font-variant-numeric:tabular-nums;color:var(--dim)}
         <h2 class="sec">Ecological community</h2>
         <div id="community"></div>
 
+        <h2 class="sec">Carbon (plants only)</h2>
+        <div id="carbon"></div>
+
         <div class="cite" id="cites"></div>
       </div>
     </div>
@@ -248,7 +292,7 @@ td.num{text-align:right;font-variant-numeric:tabular-nums;color:var(--dim)}
       &nbsp; <span class="dot" style="background:var(--red)"></span>Flagged
       <br/>
       <span style="font-size:9.5px;color:var(--faint)">
-        Basemap switcher: top-right · Esri satellite · OSM · CARTO
+        Basemap switcher: top-right · Esri satellite · OSM · Topo
       </span>
     </div>
   </div>
@@ -260,9 +304,14 @@ let map, mapReady=false;
 
 const BASEMAPS = {
   light: {
-    title:'Minimal Gray',
-    tiles:['a','b','c'].map(s=>`https://${s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png`),
-    attribution:'© OpenStreetMap contributors © CARTO',
+    title:'Light Gray (Esri)',
+    tiles:['https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}'],
+    attribution:'Esri, HERE, Garmin, FAO, NOAA, USGS',
+  },
+  osm: {
+    title:'OpenStreetMap',
+    tiles:['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+    attribution:'© OpenStreetMap contributors',
   },
   satellite: {
     title:'Satellite (Esri)',
@@ -275,9 +324,9 @@ const BASEMAPS = {
     attribution:'© OpenTopoMap (CC-BY-SA)',
   },
   dark: {
-    title:'Dark',
-    tiles:['a','b','c'].map(s=>`https://${s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png`),
-    attribution:'© OpenStreetMap contributors © CARTO',
+    title:'Dark (Esri)',
+    tiles:['https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}'],
+    attribution:'Esri, HERE, Garmin, FAO, NOAA, USGS',
   },
 };
 
@@ -410,6 +459,8 @@ function pctClass(p){ return p>=80?'good':(p>=50?'fair':'poor'); }
 
 function render(d){
   document.getElementById('results').style.display='block';
+  document.getElementById('capabilities').style.display='none';
+  document.getElementById('audience').style.display='none';
   const s=d.scores;
   document.getElementById('m-total').textContent=s.gbif_total_matching.toLocaleString();
   document.getElementById('m-analysed').textContent=s.records_analysed.toLocaleString();
@@ -497,6 +548,26 @@ function render(d){
   }
   com.innerHTML=html || '<div class="note">No community data.</div>';
 
+  // carbon (plants only)
+  const cb=d.carbon;
+  const cel=document.getElementById('carbon');
+  if(!cb){
+    cel.innerHTML='<div class="note">No data.</div>';
+  }else if(!cb.applicable){
+    cel.innerHTML='<div class="note">'+(cb.note||'Not applicable for this taxon.')+'</div>';
+  }else{
+    const t=cb.sample_totals, e=cb.equivalences;
+    cel.innerHTML=`
+      <table>
+        <tr><th>Metric</th><th style="text-align:right">Value</th></tr>
+        <tr><td>Standing-stock CO₂e</td><td class="num">${t.co2e_t.toLocaleString()} t</td></tr>
+        <tr><td>Total carbon</td><td class="num">${t.carbon_t.toLocaleString()} t C</td></tr>
+        <tr><td>Annual sequestration</td><td class="num">${t.annual_sequestration_co2e_t.toLocaleString()} t/yr</td></tr>
+        <tr><td>Car-travel equivalent</td><td class="num">${e.car_km.toLocaleString()} km</td></tr>
+      </table>
+      <div class="note">${cb.scenario_note||''}</div>`;
+  }
+
   document.getElementById('cites').innerHTML =
     'Method: '+d.standards.quality_tests;
 
@@ -531,6 +602,8 @@ function render(d){
 document.getElementById('run').addEventListener('click', run);
 document.getElementById('species').addEventListener('keydown',
   e=>{ if(e.key==='Enter') run(); });
+document.getElementById('capabilities').style.display='block';
+document.getElementById('audience').style.display='block';
 initMap();
 </script>
 </body>

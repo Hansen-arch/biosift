@@ -43,6 +43,7 @@ from utils.cooccurrence import (
     fetch_genus_assemblage, build_cooccurrence, COO_CITATION,
 )
 from utils.predict import run_distribution_metrics
+from utils.carbon import estimate_carbon
 from utils.icons import icon
 from utils.basemaps import BASEMAPS, basemap
 
@@ -401,10 +402,10 @@ def _render_results():
         T.alert(kind, title, msg)
 
     # ── tabs ───────────────────────────────────────────────
-    tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9 = st.tabs([
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9, tab10 = st.tabs([
         "Overview", "Occurrence Map", "Temporal", "Charts",
-        "Ecological Community", "Distribution & KBA", "SDM Readiness",
-        "Gap Analysis", "Data & Export",
+        "Ecological Community", "Distribution & KBA", "Carbon",
+        "SDM Readiness", "Gap Analysis", "Data & Export",
     ])
 
     with tab1:
@@ -428,12 +429,15 @@ def _render_results():
         _tab_kba(df, species_info)
 
     with tab7:
-        _tab_fitness(df, flags)
+        _tab_carbon(df, species, species_info)
 
     with tab8:
-        _tab_gaps(df, st.session_state.get("basemap"))
+        _tab_fitness(df, flags)
 
     with tab9:
+        _tab_gaps(df, st.session_state.get("basemap"))
+
+    with tab10:
         _tab_export(df, clean_df, flags, summary, score, species,
                     reliability, completeness, species_info, yr_from,
                     yr_to, basis_used, total, pop_stats)
@@ -697,6 +701,78 @@ def _tab_kba(df, species_info):
 
     T.section("Method citations")
     for cite in metrics["citations"].values():
+        st.markdown(
+            f'<div class="alert a-info" style="font-size:0.8rem">'
+            f'{cite}</div>',
+            unsafe_allow_html=True,
+        )
+
+
+def _tab_carbon(df, species, species_info):
+    """Scenario carbon standing-stock estimate for plants."""
+    st.caption(
+        "Indicated carbon potential of the woody biomass these records "
+        "represent - Chave et al. 2014 pantropical allometry with IPCC "
+        "2006 conversion factors. A scenario, not an inventory."
+    )
+    kingdom = (species_info or {}).get("kingdom", "")
+    if not kingdom:
+        st.info(
+            "Carbon estimation needs the GBIF taxon backbone (kingdom "
+            "check) - it was unavailable for this lookup."
+        )
+        return
+
+    carbon = estimate_carbon(
+        df, species,
+        family=(species_info or {}).get("family", ""),
+        genus=(species_info or {}).get("genus", ""),
+        kingdom=kingdom,
+    )
+    if carbon is None:
+        st.info("No records to assess.")
+        return
+
+    if not carbon["applicable"]:
+        T.alert(
+            "info",
+            f"Not applicable - {carbon['life_form']}",
+            carbon["note"],
+        )
+        return
+
+    tot = carbon["sample_totals"]
+    eq = carbon["equivalences"]
+    c1, c2, c3, c4 = st.columns(4)
+    T.metric_card("Standing-stock CO2e",
+                  f"{tot['co2e_t']:,.0f} t",
+                  f"{tot['tree_equivalents']:,} mature-tree equivalents",
+                  col=c1)
+    T.metric_card("Total carbon",
+                  f"{tot['carbon_t']:,.0f} t C",
+                  "above- + below-ground", col=c2)
+    T.metric_card("Dry biomass",
+                  f"{tot['biomass_t']:,.0f} t",
+                  "AGB + BGB", col=c3)
+    T.metric_card("Annual sequestration",
+                  f"{tot['annual_sequestration_co2e_t']:,.1f} t/yr",
+                  "~2.4% of standing stock", col=c4)
+
+    T.section("What that equals")
+    e1, e2, e3 = st.columns(3)
+    T.metric_card("Car travel offset",
+                  f"{eq['car_km']:,} km",
+                  "~120 g CO2e/km petrol car", col=e1)
+    T.metric_card("Household energy",
+                  f"{eq['house_years']} years",
+                  "~4 t CO2e per household-year", col=e2)
+    T.metric_card("Annual = car travel",
+                  f"{eq['annual_equals_car_km']:,} km/yr",
+                  "sequestration rate", col=e3)
+
+    T.alert("info", "Read before citing", carbon["scenario_note"])
+    T.section("Method citations")
+    for cite in carbon["citations"].values():
         st.markdown(
             f'<div class="alert a-info" style="font-size:0.8rem">'
             f'{cite}</div>',

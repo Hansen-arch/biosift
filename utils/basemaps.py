@@ -1,22 +1,23 @@
 """
 Professional key-free basemaps — explicit XYZ tile URLs.
 
-No vendor tile-name aliases (those are what broke rendering), no API
-keys. Every URL below is a public, key-free endpoint:
+No CARTO (requires API key for production use), no vendor aliases, no
+API keys. Every URL below is a public, key-free endpoint:
+  - Esri Light Gray Canvas (default — clean professional cartography)
   - OSM standard tiles (ODbL)
   - Esri ArcGIS Online World Imagery / Ocean (free with attribution)
   - OpenTopoMap (CC-BY-SA)
-  - CARTO Positron / Dark Matter (free with attribution)
 """
 
 import folium
 
 # name -> (url template, attribution, max_zoom)
 BASEMAPS = {
-    "Minimal Gray (default)": (
-        "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png",
-        "&copy; OpenStreetMap contributors &copy; CARTO",
-        19,
+    "Light Gray (default)": (
+        "https://server.arcgisonline.com/ArcGIS/rest/services/"
+        "Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}",
+        "Esri, HERE, Garmin, FAO, NOAA, USGS",
+        16,
     ),
     "OpenStreetMap": (
         "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
@@ -34,20 +35,21 @@ BASEMAPS = {
         "&copy; OpenTopoMap (CC-BY-SA)",
         17,
     ),
-    "Dark (reference)": (
-        "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png",
-        "&copy; OpenStreetMap contributors &copy; CARTO",
-        19,
-    ),
     "Ocean (Esri)": (
         "https://server.arcgisonline.com/ArcGIS/rest/services/"
         "Ocean/World_Ocean_Base/MapServer/tile/{z}/{y}/{x}",
         "Esri, GEBCO, NOAA",
         13,
     ),
+    "Dark (Esri)": (
+        "https://server.arcgisonline.com/ArcGIS/rest/services/"
+        "Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}",
+        "Esri, HERE, Garmin, FAO, NOAA, USGS",
+        16,
+    ),
 }
 
-DEFAULT = "Minimal Gray (default)"
+DEFAULT = "Light Gray (default)"
 
 
 def _tile_layer(name, active=False):
