@@ -125,7 +125,25 @@ plain text.
 - Streamlit text inputs need focus + Enter to commit values.
 - Never echo the GitHub token baked into the remote URL.
 
+## v2.2 additions (verified live, 2026-09-26)
+
+- Basemaps rewritten with EXPLICIT XYZ URLs (vendor tile-name aliases
+  were why maps broke for the user); every endpoint curl-verified
+  200 image/*; browser probe confirms tiles load + layer switcher.
+- utils/cooccurrence.py — genus assemblage (GBIF facet) + 1° Jaccard
+  grid overlap; 'Ecological Community' tab merges GloBI + congeners.
+- utils/predict.py — EOO (monotone-chain hull, Burgio 2021 caveat),
+  AOO (2×2 km IUCN grid), KBA Criterion B screen (IUCN 2016) with
+  screening-only caveat; 'Distribution & KBA' tab.
+- Challenge framing REMOVED everywhere (user request).
+- Live-verified: EOO warning fires on real data (29.6M km² hull from
+  vagrant records) — the honesty-first pattern users can cite.
+
 ## Roadmap ideas (not started)
+
+- **Standalone app (user wants this)**: FastAPI backend wrapping utils/
+  (already framework-agnostic) + MapLibre GL JS frontend; deploy via
+  Docker. Keeps Streamlit app as the quick-share demo.
 
 - pytest suite for quality checks + pack builders
 - README screenshots from scripts/ui_audit.py output
