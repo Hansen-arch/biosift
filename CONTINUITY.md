@@ -169,6 +169,84 @@ plain text.
   (sharing off or app suspended) — code is fine; user must re-enable
   public sharing in share.streamlit.io.
 
+## v3.1 — Carbon, Carto removal, gaia-style design, deploy (2026-09-26)
+
+### CHANGELOG — every change this version
+
+1. **Carto basemaps deleted everywhere.** User reported Carto tiles
+   requiring an API key in production. `utils/basemaps.py` now:
+   Esri Light Gray (DEFAULT), OSM, Esri World Imagery, OpenTopoMap,
+   Esri Ocean, Esri Dark Gray — all XYZ URLs curl-verified 200 image/*.
+   `standalone/frontend.py` BASEMAPS mirrors the same set (key `light`
+   is now Esri Light Gray; added `osm` entry). Zero `cartocdn`
+   references remain in code.
+2. **utils/carbon.py NEW** — scenario carbon standing-stock estimates
+   for plant species.
+   - Science: Chave et al. 2014 pantropical allometry
+     AGB(kg) = 0.0673·(WD·DBH²·H)^0.976 (⚠ kg out, NOT g — first
+     implementation divided by 1000 again and zeroed results);
+     BGB = AGB×0.24 (IPCC 2006 Tab 4.4); C = DM×0.47 (IPCC default);
+     CO2e = C×44/12; annual sequestration ≈ 2.4% of stock.
+   - Scenario: each record = 1 mature tree (DBH 30 cm, H 15 m, WD by
+     life form: tree 0.60, conifer 0.45, mangrove 0.70, bamboo 0.35,
+     palm 0.40, herb/grass 0.20). Life form inferred from name/family
+     text; disclosed in every output as a scenario, not an inventory.
+   - **Kingdom gate**: only Plantae proceeds (Animalia/Fungi →
+     applicable=false with reason). Kingdom comes from GBIF backbone
+     via species/{key} — text inference alone cannot tell Panthera
+     from Platanus.
+   - Sanity check vs literature: 30 cm/15 m oak ≈ 0.44 t AGB ≈ 0.94
+     t CO2e/tree. 500 oaks → 469 t CO2e, 11.3 t/yr sequestration.
+   - Wired into: Streamlit 'Carbon' tab (tab 7), API bundle `.carbon`,
+     frontend '#carbon' section with equivalences (car-km, house-yrs).
+3. **Standalone frontend redesigned (gaia.eco style reference)**:
+   header tagline 'Professional Biodiversity Studio'; numbered
+   capability strip (5 caps) + audience chips shown on landing,
+   hidden once results render; carbon section added. No emoji.
+4. **Docker deploy**: Dockerfile (python:3.12-slim, uvicorn 0.0.0.0
+   8080, 2 workers, keep-alive 120), docker-compose.yml with
+   healthcheck on /api/health, .dockerignore. Docker daemon needs
+   sudo in this sandbox → NOT built here; production CMD verified on
+   0.0.0.0:8095 (health 200, frontend 200, oak bundle 200 with
+   carbon). README documents Railway/Render/Fly/VPS paths.
+   ⚠ host port 8080 is occupied by sandbox SearXNG — inside a
+   container this is irrelevant.
+5. **Landing-state bugfix**: capabilities/audience strips were only
+   ever hidden (in render()) — now shown at boot.
+
+### REPRODUCE THIS SESSION (full v1→v3.1 path)
+
+```bash
+git clone https://github.com/Hansen-arch/biosift && cd biosift
+python -m venv venv && source venv/bin/activate
+pip install -r requirements.txt
+
+# Streamlit app (multi-page, 10 tabs incl. Carbon)
+streamlit run app.py                    # http://localhost:8501
+
+# Standalone app (FastAPI + MapLibre, no keys)
+uvicorn standalone.server:app --port 8080   # http://localhost:8080
+
+# Docker (any host with a docker daemon)
+docker compose up --build               # http://localhost:8080
+
+# UI audit (needs: chrome + websocket-client)
+BIOSIFT_URL=http://localhost:8622 python scripts/ui_audit.py pages
+BIOSIFT_URL=http://localhost:8622 python scripts/ui_audit.py analysis
+```
+
+API smoke:
+```bash
+curl localhost:8080/api/health
+curl "localhost:8080/api/analysis/Quercus%20robur?limit=200" | jq .carbon
+curl "localhost:8080/api/analysis/Panthera%20leo?limit=300" | jq .sdm_readiness.verdict
+```
+
+Audit history: every version was verified live via CDP (screenshots in
+/tmp/biosift_shots: 01–05 pages, 06–15 streamlit flow, 20–22 live
+cloud attempts, 30–43 new tabs + tiles, 40–43 v2.2, 50 live-deploy,
+60–62 standalone v3.0, 70–72 v3.1).
+
 ## Roadmap ideas (not started)
 
 - **Standalone app (user wants this)**: FastAPI backend wrapping utils/

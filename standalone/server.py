@@ -45,6 +45,7 @@ from utils.bdq import bdq_meta, citation_note
 from utils.benchmark import fetch_population_stats, build_benchmark
 from utils.fitness import audit_sdm_readiness, PROFILES
 from utils.predict import run_distribution_metrics
+from utils.carbon import estimate_carbon
 from utils.interactions import fetch_interactions, summarize_interactions
 from utils.cooccurrence import (
     fetch_genus_assemblage, build_cooccurrence, COO_CITATION,
@@ -163,6 +164,12 @@ def analysis(
         species, year_from=year_from, year_to=year_to
     )
     coo = build_cooccurrence(species, df, genus_df, max_partners=8)
+    carbon = estimate_carbon(
+        df, species,
+        family=info.get("family", ""),
+        genus=info.get("genus", ""),
+        kingdom=info.get("kingdom", ""),
+    )
 
     bundle = {
         "schema": "biosift.analysis/1.1",
@@ -221,6 +228,7 @@ def analysis(
             "method": COO_CITATION,
             "partners": coo["partners"],
         },
+        "carbon": carbon,
         "precision_stats": get_precision_stats(df),
         "multimedia": get_multimedia_stats(df),
         "records": (
