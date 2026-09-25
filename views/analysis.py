@@ -32,6 +32,15 @@ from utils.benchmark import fetch_population_stats, build_benchmark
 from utils.reppack import build_reppack
 from utils.pdf_report import build_pdf_report
 from utils.cube import cube_exports
+from utils.fitness import (
+    audit_sdm_readiness, PROFILES as FITNESS_PROFILES,
+    CITATIONS as FITNESS_CITATIONS,
+)
+from utils.interactions import (
+    fetch_interactions, summarize_interactions,
+)
+from utils.icons import icon
+from utils.basemaps import BASEMAPS, basemap
 
 
 def score_class(score):
@@ -116,6 +125,10 @@ def render():
         horizontal=True,
     )
 
+    basemap_name = st.selectbox(
+        "Basemap", list(BASEMAPS.keys()), index=0,
+    )
+
     run_btn = st.button("Run Analysis", type="primary",
                         use_container_width=True)
     if "df" in st.session_state:
@@ -128,14 +141,15 @@ def render():
             st.warning("Please enter a scientific name or select a sample.")
         else:
             _run_analysis(species_input, int(year_from), int(year_to),
-                          basis_filter, limit)
+                          basis_filter, limit, basemap_name)
 
     # ── results ────────────────────────────────────────────
     if "df" in st.session_state and st.session_state.get("species"):
         _render_results()
 
 
-def _run_analysis(species_input, year_from, year_to, basis_filter, limit):
+def _run_analysis(species_input, year_from, year_to, basis_filter, limit,
+                  basemap_name=None):
     progress = st.progress(0, text="Connecting to GBIF…")
 
     try:
@@ -190,7 +204,7 @@ def _run_analysis(species_input, year_from, year_to, basis_filter, limit):
         "flags": flags, "summary": summary, "outliers": outliers,
         "reliability": reliability, "species_info": species_info,
         "multimedia": multimedia, "completeness": completeness,
-        "pop_stats": pop_stats,
+        "pop_stats": pop_stats, "basemap": basemap_name,
         "year_from": year_from, "year_to": year_to,
         "basis_filter": basis_filter, "limit": limit,
     })
@@ -224,10 +238,10 @@ def _render_results():
             st.image(species_info["image_url"], use_container_width=True)
         else:
             st.markdown(
-                '<div style="width:110px;height:110px;border-radius:14px;'
+                f'<div style="width:110px;height:110px;border-radius:14px;'
                 f'background:{C["card"]};border:1px solid {C["line"]};'
                 'display:flex;align-items:center;justify-content:center;'
-                'font-size:2.4rem">🌿</div>',
+                f'color:{C["text_faint"]}">{icon("dna", 44)}</div>',
                 unsafe_allow_html=True,
             )
     with hc[1]:
@@ -348,10 +362,34 @@ def _render_results():
                 f"fewer defects than the global population (better)."
             )
 
+    # ── SDM readiness banner ──────────────────────────────
+    fit = audit_sdm_readiness(df, flags)
+    if fit:
+        kind, title, msg = {
+            "READY": (
+                "success", "SDM-ready dataset",
+                f"{fit['ready_records']:,} of {len(df):,} records "
+                f"({fit['retention_pct']}%) pass all filters under the "
+                f"Standard profile — full gate breakdown in the "
+                f"SDM Readiness tab."),
+            "CONDITIONAL": (
+                "warn", "Conditionally SDM-ready",
+                f"{fit['ready_records']:,} records survive all filters "
+                f"({fit['retention_pct']}% retention) but sample size or "
+                f"distribution warrants caution — see SDM Readiness."),
+            "NOT READY": (
+                "error", "Not SDM-ready at Standard strictness",
+                f"Only {fit['ready_records']:,} of {len(df):,} records "
+                f"survive the Standard profile — see the SDM Readiness "
+                f"tab for the failing gates."),
+        }[fit["verdict"]]
+        T.alert(kind, title, msg)
+
     # ── tabs ───────────────────────────────────────────────
-    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
         "Overview", "Occurrence Map", "Temporal", "Charts",
-        "Gap Analysis", "Data & Export",
+        "Interactions", "SDM Readiness", "Gap Analysis",
+        "Data & Export",
     ])
 
     with tab1:
@@ -359,7 +397,8 @@ def _render_results():
                       outliers, reliability, clean_df)
 
     with tab2:
-        _tab_map(df, flags, outliers, map_type)
+        _tab_map(df, flags, outliers, map_type,
+                 st.session_state.get("basemap"))
 
     with tab3:
         _tab_temporal(df, yr_from, yr_to)
@@ -368,9 +407,15 @@ def _render_results():
         _tab_charts(df)
 
     with tab5:
-        _tab_gaps(df)
+        _tab_interactions(species, species_info)
 
     with tab6:
+        _tab_fitness(df, flags)
+
+    with tab7:
+        _tab_gaps(df, st.session_state.get("basemap"))
+
+    with tab8:
         _tab_export(df, clean_df, flags, summary, score, species,
                     reliability, completeness, species_info, yr_from,
                     yr_to, basis_used, total, pop_stats)
@@ -508,13 +553,140 @@ def _tab_overview(df, flags, summary, score, completeness, multimedia,
         st.info("Dataset breakdown unavailable — datasetName missing.")
 
 
-def _tab_map(df, flags, outliers, map_type):
+def _tab_interactions(species, species_info):
+    """GloBI species-interactions explorer."""
+    st.caption(
+        "Interaction data from GloBI (Global Biotic Interactions, Poelen "
+        "et al. 2014) — the open aggregation the GBIF Work Programme 2026 "
+        "names a priority data area."
+    )
+    with st.spinner("Querying GloBI…"):
+        interactions = fetch_interactions(species)
+
+    if not interactions:
+        st.info(
+            f"No interaction records indexed by GloBI for *{species}*. "
+            "Rare and poorly-studied taxa are exactly where interaction "
+            "gaps matter — consider contributing via GloBI's publisher "
+            "pathways."
+        )
+        return
+
+    by_type, partners = summarize_interactions(interactions)
+
+    t1, t2 = st.columns([1, 2])
+    with t1:
+        T.section("Interaction types")
+        for row in by_type[:8]:
+            st.markdown(
+                f'<div style="display:flex;justify-content:space-between;'
+                f'padding:0.4rem 0;border-bottom:1px solid {C["line"]}">'
+                f'<span style="font-size:0.86rem">{row["label"]}</span>'
+                f'<span class="badge">{row["count"]}</span></div>',
+                unsafe_allow_html=True,
+            )
+    with t2:
+        T.section("Top interaction partners")
+        partner_df = pd.DataFrame(
+            [{"Partner": p["partner"], "Relationship": p["kinds"]}
+             for p in partners[:15]]
+        )
+        st.dataframe(partner_df, use_container_width=True,
+                     hide_index=True)
+
+    with st.expander(f"All {len(interactions)} interaction records "
+                     f"(with sources)"):
+        full = pd.DataFrame([
+            {
+                "Relationship": r["label"],
+                "Partner": r["other"],
+                "Source": r["citation"] or r["source"] or "—",
+            }
+            for r in interactions
+        ])
+        st.dataframe(full, use_container_width=True, hide_index=True)
+
+
+def _tab_fitness(df, flags):
+    """SDM readiness audit with cited, tiered filters."""
+    st.caption(
+        "Filters follow Zizka et al. 2020 (Ecography) and Marcer et al. "
+        "2022 (Ecography) — with the strictness profile made explicit, "
+        "because 'clean data' means different things in different "
+        "pipelines."
+    )
+
+    mode = st.radio(
+        "Strictness profile",
+        list(FITNESS_PROFILES.keys()),
+        horizontal=True,
+    )
+    fit = audit_sdm_readiness(df, flags, mode=mode)
+    if not fit:
+        st.info("No records to assess.")
+        return
+
+    v = fit["verdict"]
+    cls = "good" if v == "READY" else (
+        "fair" if v == "CONDITIONAL" else "poor"
+    )
+    label = {"READY": "Ready", "CONDITIONAL": "Conditional",
+             "NOT READY": "Not ready"}[v]
+
+    fc = st.columns([2, 1, 1, 1])
+    with fc[0]:
+        st.markdown(
+            f'<div class="score-hero"><div class="metric-label">'
+            f'SDM readiness verdict</div>'
+            f'<div class="score-big t-{cls}" style="font-size:2rem">'
+            f'{label}</div></div>',
+            unsafe_allow_html=True,
+        )
+    T.metric_card("SDM-ready records",
+                  f"{fit['ready_records']:,}", col=fc[1])
+    T.metric_card("Retention", f"{fit['retention_pct']}%",
+                  "of analysed sample", col=fc[2])
+    T.metric_card("≥100 sample gate",
+                  "Pass" if fit["min_sample_ok"] else "Fail",
+                  col=fc[3])
+
+    T.section("Filter gates")
+    rows = []
+    for g in fit["gates"]:
+        rows.append({
+            "Gate": g["gate"],
+            "Pass": g["pass"],
+            "Fail": g["fail"],
+            "Rationale": g["desc"],
+        })
+    st.dataframe(pd.DataFrame(rows), use_container_width=True,
+                 hide_index=True)
+
+    T.section("Methodology & citations")
+    for cite in fit["citations"].values():
+        st.markdown(
+            f'<div class="alert a-info" style="font-size:0.8rem">'
+            f'{cite}</div>',
+            unsafe_allow_html=True,
+        )
+    st.caption(
+        "BioSift extends the literature by making filter strictness an "
+        "explicit, disclosed parameter — Standard mirrors Zizka et al.'s "
+        "moderate settings; Strict reflects the publication-grade end of "
+        "their sensitivity analysis."
+    )
+
+
+def _tab_map(df, flags, outliers, map_type, basemap_name=None):
     from streamlit_folium import st_folium
-    import folium as fl
+    from utils.basemaps import add_layer_control
 
     map_type = st.session_state.get("map_type", "Point Map")
     T.section("Occurrence map")
-    st.caption(f"Mode: **{map_type}** — switch in the controls above.")
+    st.caption(
+        f"Mode: **{map_type}** — switch basemap via the layers control "
+        f"in the map's top-right corner."
+    )
 
     try:
         if map_type == "Point Map":
@@ -523,7 +695,8 @@ def _tab_map(df, flags, outliers, map_type):
                 f'<span class="legend-dot dot-red"></span> Flagged',
                 unsafe_allow_html=True,
             )
-            m = build_map(df, flags, map_type="points")
+            m = build_map(df, flags, map_type="points",
+                          basemap_name=basemap_name)
             st_folium(m, width=None, height=560, returned_objects=[],
                       key="map_points")
         elif map_type == "Heatmap":
@@ -533,8 +706,8 @@ def _tab_map(df, flags, outliers, map_type):
         elif map_type == "DBSCAN Outliers":
             lat_c = df["decimalLatitude"].dropna().mean()
             lon_c = df["decimalLongitude"].dropna().mean()
-            m_db = fl.Map(location=[lat_c, lon_c], zoom_start=4,
-                          tiles="CartoDB dark_matter")
+            m_db = basemap([lat_c, lon_c], zoom=4,
+                           name=basemap_name)
             for idx, row in df.iterrows():
                 try:
                     lat, lon = (row.get("decimalLatitude"),
@@ -550,6 +723,7 @@ def _tab_map(df, flags, outliers, map_type):
                     ).add_to(m_db)
                 except Exception:
                     continue
+            add_layer_control(m_db)
             st_folium(m_db, width=None, height=560, returned_objects=[],
                       key="map_dbscan")
             if outliers is not None:
@@ -564,7 +738,9 @@ def _tab_map(df, flags, outliers, map_type):
                 "Kernel Density Estimation of habitat suitability — "
                 "exploratory only, not a full correlative SDM."
             )
-            sdm_map, sdm_err = build_sdm_map(df)
+            sdm_map, sdm_err = build_sdm_map(
+                df, basemap_name=basemap_name
+            )
             if sdm_err:
                 st.error(sdm_err)
             else:
@@ -650,7 +826,7 @@ def _tab_charts(df):
                             use_container_width=True)
 
 
-def _tab_gaps(df):
+def _tab_gaps(df, basemap_name=None):
     T.section("Global data gap map")
     st.info(
         "The world is divided into 10° grid cells. **Coloured cells** have "
@@ -659,7 +835,8 @@ def _tab_gaps(df):
         "data."
     )
     st.caption(
-        "🟢 data-rich · 🟡 sparse · 🟠 very sparse · 🔴 1–2 records"
+        "Cell shading: green = data-rich, amber = sparse, orange = very "
+        "sparse, red = 1–2 records. Dark = no records."
     )
     gap_stats = get_gap_stats(df)
     if gap_stats:
@@ -670,7 +847,7 @@ def _tab_gaps(df):
                       f"{gap_stats['countries']:,}", col=g[2])
     from streamlit_folium import st_folium
     with st.spinner("Building gap map…"):
-        gap_map = build_gap_map(df)
+        gap_map = build_gap_map(df, basemap_name=basemap_name)
         if gap_map:
             st_folium(gap_map, width=None, height=500,
                       returned_objects=[], key="map_gap")
@@ -705,17 +882,22 @@ def _tab_export(df, clean_df, flags, summary, score, species, reliability,
         "basis": basis_used, "limit": len(df), "gbif_total": int(total),
     }
 
+    # ── fitness + interactions for exports ────────────────
+    fit = audit_sdm_readiness(df, flags)
+    interactions = fetch_interactions(species)
+
     # ── Reproducibility Pack ──────────────────────────────
     pack, err = build_reppack(
         df, clean_df, species, score, summary,
         reliability=reliability, completeness=completeness,
         benchmark=bench, species_info=species_info, filters=filters,
+        fitness=fit, interactions=interactions,
     )
     ec1, ec2, ec3 = st.columns(3)
     with ec1:
         if pack:
             st.download_button(
-                "⬇️ Reproducibility Pack (ZIP)",
+                "Reproducibility Pack (ZIP)",
                 data=pack,
                 file_name=f"biosift_{species.replace(' ', '_')}_pack.zip",
                 mime="application/zip",
@@ -737,7 +919,7 @@ def _tab_export(df, clean_df, flags, summary, score, species, reliability,
         )
         if pdf:
             st.download_button(
-                "⬇️ PDF Quality Report",
+                "PDF Quality Report",  # fitness verdict included in meta
                 data=pdf,
                 file_name=f"biosift_{species.replace(' ', '_')}_report.pdf",
                 mime="application/pdf",
@@ -753,7 +935,7 @@ def _tab_export(df, clean_df, flags, summary, score, species, reliability,
             species, yr_from, yr_to, basis_used, grid=10
         )
         st.download_button(
-            "⬇️ GBIF Data Cube (SQL)",
+            "GBIF Data Cube (SQL)",
             data=sql,
             file_name=f"biosift_{species.replace(' ', '_')}_cube.sql",
             mime="text/plain",

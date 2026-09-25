@@ -72,7 +72,7 @@ def build_recipe_requests(species, filters):
 def build_reppack(
     df, clean_df, species, score, summary,
     reliability=None, completeness=None, benchmark=None,
-    species_info=None, filters=None,
+    species_info=None, filters=None, fitness=None, interactions=None,
 ):
     """Return (bytes, None) of the Reproducibility Pack ZIP, or (None, error)."""
     try:
@@ -127,6 +127,19 @@ def build_reppack(
                 "mean": completeness.get("avg_score") if completeness else None,
             },
             "benchmark": benchmark or [],
+            "sdm_readiness": {
+                "verdict": fitness.get("verdict"),
+                "profile": fitness.get("profile"),
+                "ready_records": fitness.get("ready_records"),
+                "retention_pct": fitness.get("retention_pct"),
+                "gates": fitness.get("gates"),
+                "citations": fitness.get("citations"),
+            } if fitness else None,
+            "interactions": {
+                "source": "GloBI — globalbioticinteractions.org",
+                "count": len(interactions),
+                "records": interactions[:100],
+            } if interactions is not None else None,
             "standards": {
                 "quality_tests": citation_note(),
                 "data_standard": "Darwin Core — https://dwc.tdwg.org",

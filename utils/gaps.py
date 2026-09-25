@@ -2,8 +2,10 @@ import folium
 import pandas as pd
 import numpy as np
 
+from utils.basemaps import basemap, add_layer_control
 
-def build_gap_map(df):
+
+def build_gap_map(df, basemap_name=None):
     try:
         clean = df[
             ["decimalLatitude", "decimalLongitude"]
@@ -15,10 +17,8 @@ def build_gap_map(df):
         lat_center = clean["decimalLatitude"].mean()
         lon_center = clean["decimalLongitude"].mean()
 
-        m = folium.Map(
-            location=[lat_center, lon_center],
-            zoom_start=3,
-            tiles="CartoDB dark_matter"
+        m = basemap(
+            [lat_center, lon_center], zoom=3, name=basemap_name
         )
 
         grid_size = 10
@@ -76,6 +76,7 @@ def build_gap_map(df):
             except Exception:
                 continue
 
+        add_layer_control(m)
         return m
 
     except Exception:

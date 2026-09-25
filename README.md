@@ -72,7 +72,24 @@ the source.**
   precision tiers, multimedia quality (incl. broken-image sampling)
 - Per-contributing-dataset quality breakdown with A–F grades
 
+### Species interactions (GloBI)
+- Live query of [GloBI](https://globalbioticinteractions.org) — predator–prey,
+  parasite–host, pollination, pathogen and symbiosis records for the
+  analysed species, with direction normalisation and source citations
+- Artefact-resistant: name-resolution failures in GloBI are filtered
+  before aggregation (methodology documented in-app)
+
+### SDM readiness audit
+- Journal-cited filter gates: Zizka et al. 2020 (*Ecography*),
+  Marcer et al. 2022 (*Ecography*), GBIF Georeferencing Best Practice
+- Two disclosed strictness profiles — Standard (≤10 km coordinate
+  uncertainty) and Strict (≤1 km, publication-grade)
+- Verdict + retention + per-gate breakdown, including *why* records fail
+  (e.g. stated uncertainty typical of citizen-science data)
+
 ### Spatial & temporal intelligence
+- Six key-free professional basemaps (Esri World Imagery, Ocean,
+  OpenTopoMap, Carto Voyager/Positron/dark) with in-map layer switching
 - Five map modes: point map, heatmap, DBSCAN outliers, SDM (KDE) preview,
   and the 10°-grid global data gap map with coverage alerts
 - Records-per-year trends, decade breakdowns, citizen-science surge
@@ -117,6 +134,7 @@ The app talks only to public GBIF API endpoints — no API key needed.
 | Darwin Core | Exports emit valid dwc terms; DwC-A includes `meta.xml` + EML |
 | GBIF data cubes | Cube exports target the GBIF SQL download service |
 | IUCN Red List | Categories surfaced via the GBIF species API |
+| GloBI | Species interactions via directional taxon queries |
 
 ---
 

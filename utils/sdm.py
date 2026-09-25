@@ -3,7 +3,9 @@ import pandas as pd
 import folium
 from scipy.stats import gaussian_kde
 
-def build_sdm_map(df):
+from utils.basemaps import basemap, add_layer_control
+
+def build_sdm_map(df, basemap_name=None):
     try:
         clean = df[["decimalLatitude", "decimalLongitude"]].dropna()
 
@@ -37,10 +39,8 @@ def build_sdm_map(df):
         density = (density - density.min()) / (density.max() - density.min())
 
         # build map
-        m = folium.Map(
-            location=[lat_center, lon_center],
-            zoom_start=4,
-            tiles="CartoDB dark_matter"
+        m = basemap(
+            [lat_center, lon_center], zoom=4, name=basemap_name
         )
 
         # add actual occurrence dots
@@ -77,6 +77,7 @@ def build_sdm_map(df):
                     fill_opacity=opacity
                 ).add_to(m)
 
+        add_layer_control(m)
         return m, None
 
     except Exception as e:
