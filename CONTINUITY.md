@@ -7,8 +7,8 @@
 ## Project
 
 - **What**: Biodiversity data-quality and distribution-intelligence
-  platform over the GBIF occurrence API. (Ebbe Nielsen Challenge framing
-  removed from product per user request, 2026-09-26.)
+  platform over the GBIF occurrence API. (Competition framing removed
+  from product and docs per user request, 2026-09-26.)
 - **Live**: https://biosift-gbif.streamlit.app
 - **Repo**: https://github.com/Hansen-arch/biosift
 - **Stack**: Python 3.12, Streamlit 1.58, Plotly, Folium, reportlab,
