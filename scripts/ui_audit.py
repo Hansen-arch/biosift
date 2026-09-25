@@ -109,20 +109,28 @@ class Tab:
     def wait_text(self, text, timeout=40):
         deadline = time.time() + timeout
         while time.time() < deadline:
-            if self.js(
-                f"document.body.innerText.includes({json.dumps(text)})"
-            ):
-                return True
+            try:
+                if self.js(
+                    f"(document.body && document.body.innerText || '')"
+                    f".includes({json.dumps(text)})"
+                ):
+                    return True
+            except Exception:
+                pass  # navigation race — document tearing
             time.sleep(1)
         return False
 
     def wait_gone(self, text, timeout=30):
         deadline = time.time() + timeout
         while time.time() < deadline:
-            if not self.js(
-                f"document.body.innerText.includes({json.dumps(text)})"
-            ): 
-                return True
+            try:
+                if not self.js(
+                    f"(document.body && document.body.innerText || '')"
+                    f".includes({json.dumps(text)})"
+                ):
+                    return True
+            except Exception:
+                return True  # page torn down — text is gone
             time.sleep(1)
         return False
 

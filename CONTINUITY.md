@@ -139,6 +139,36 @@ plain text.
 - Live-verified: EOO warning fires on real data (29.6M km² hull from
   vagrant records) — the honesty-first pattern users can cite.
 
+## v3.0 — Standalone app (built & audited, 2026-09-26)
+
+- `standalone/server.py` — FastAPI wrapper over the SAME utils/ science
+  layer. Endpoints: `/api/health`, `/api/analysis/{species}` (full JSON
+  bundle, schema biosift.analysis/1.1, incl. records embed via
+  `include_records=true`), `/api/analysis/{species}/map` (folium HTML),
+  `/` (frontend). CORS open. Run: `uvicorn standalone.server:app --port 8080`.
+- `standalone/frontend.py` — single-file MapLibre GL JS 4.7 app
+  (no key/token): CARTO light default + Esri satellite + OpenTopoMap +
+  dark switcher (rebuilds style via rasterStyle(); re-pushes GeoJSON on
+  switch via window.__lastGeo). Occurrence points colored clean/flagged,
+  EOO hull polygon overlay, fitBounds, species bar with IUCN chip.
+  `window.__map` exposed for audits.
+- Verified live: API 200 full bundle (health 98.7%, SDM 4 ready/1.3%,
+  EOO 14.9M km² + hull GeoJSON 10 pts, B2 met, 271 GloBI interactions,
+  58-species genus assemblage, 8 Jaccard partners — melanochaita 0.8
+  high, pardus 0.33 moderate, leo leo 0.07 low — biologically correct);
+  CDP audit: 0 exceptions, MapLibre map.loaded()=true, layers
+  [bg, base, occ-pt-stroke, occ-pt-fill, occ-hull-fill, occ-hull-line],
+  sources [base, occ, hull].
+- API quirks discovered (do not regress): GBIF `facet=species` silently
+  returns nothing — use `facet=scientificName` (authorship included,
+  strip with _strip_authorship) + `taxonKey=<genusKey from
+  /species/match>`; the `genus=` text param is ignored on occurrence
+  search. numpy.bool_ is not FastAPI-JSON-serializable — coerce in
+  screen_kba_b.
+- Live deploy (streamlit cloud) currently behind a login redirect
+  (sharing off or app suspended) — code is fine; user must re-enable
+  public sharing in share.streamlit.io.
+
 ## Roadmap ideas (not started)
 
 - **Standalone app (user wants this)**: FastAPI backend wrapping utils/
