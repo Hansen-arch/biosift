@@ -247,6 +247,34 @@ Audit history: every version was verified live via CDP (screenshots in
 cloud attempts, 30–43 new tabs + tiles, 40–43 v2.2, 50 live-deploy,
 60–62 standalone v3.0, 70–72 v3.1).
 
+## Docker build verification (2026-09-26)
+
+Docker daemon unavailable in sandbox (needs sudo), so verification was
+done by SIMULATION — the strongest possible without a runtime:
+
+1. `docker compose config` unavailable (old docker CLI) → validated
+   docker-compose.yml with Python yaml.safe_load instead. **This caught
+   a real bug**: the healthcheck `test:` used a multi-line flow sequence
+   `["CMD", "python", "-c", ...]` that is invalid YAML flow syntax
+   (would have failed `docker compose up`). Fixed to CMD-SHELL + folded
+   scalar; shell command executed and verified against a dead port.
+2. Build-context simulation: fresh dir /tmp/biosift_img with ONLY the
+   files the Dockerfile COPYs (utils, standalone, views, app.py,
+   requirements.txt) — mirrors what .dockerignore lets into the image.
+3. Fresh venv + `pip install -r requirements.txt` → exit 0, all heavy
+   imports OK (fastapi, uvicorn, streamlit, folium, reportlab, plotly,
+   sklearn, scipy) — proves the requirements pin set is complete for a
+   clean environment.
+4. Production CMD booted from the simulated image fs:
+   `uvicorn standalone.server:app --host 0.0.0.0 --port ... --workers 1
+   --timeout-keep-alive 120` → health 200, frontend 200, /docs 200,
+   full oak analysis 200 (health 67.3%, SDM READY, carbon 140.8 t
+   CO2e / 3.38 t per year).
+
+Remaining for a real host: `docker compose up --build` and confirm the
+container healthcheck flips to healthy (start_period 20s, interval 30s,
+retries 3). Expect first-boot cold ~2 min for pip layer.
+
 ## Roadmap ideas (not started)
 
 - **Standalone app (user wants this)**: FastAPI backend wrapping utils/
