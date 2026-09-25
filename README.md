@@ -4,40 +4,44 @@
 
 Built for the **2026 GBIF Ebbe Nielsen Challenge**
 
+[![Live Demo](https://img.shields.io/badge/live-demo-22C58B?style=flat-square)](https://biosift-gbif.streamlit.app)
+[![Python](https://img.shields.io/badge/python-3.12-4DA3FF?style=flat-square)](https://www.python.org)
+[![Streamlit](https://img.shields.io/badge/streamlit-1.58-FF4B4B?style=flat-square)](https://streamlit.io)
+[![License](https://img.shields.io/badge/license-MIT-8A97A8?style=flat-square)](LICENSE)
+
 ---
 
-## 🔗 Live Demo
+## 🔗 Live demo
 
-**[biosift-gbif.streamlit.app](https://biosift-gbif.streamlit.app)**
-
-No installation required. Open in any desktop browser and start analysing immediately.
+**[biosift-gbif.streamlit.app](https://biosift-gbif.streamlit.app)** — no
+installation required.
 
 ---
 
 ## What is BioSift?
 
-BioSift is an open-source biodiversity data quality diagnostic tool that
-enables researchers, conservationists and data managers to instantly assess
-the quality, completeness and reliability of species occurrence data from
-the Global Biodiversity Information Facility (GBIF).
+BioSift audits the quality of GBIF occurrence data in seconds and turns the
+result into evidence a reviewer can trust: a standards-aligned quality
+audit, a benchmark against the full GBIF population, and one-click export of
+a Reproducibility Pack, PDF report, Darwin Core Archive and GBIF data-cube
+SQL.
 
-Instead of manually inspecting raw datasets, users receive immediate visual
-diagnostics across multiple quality dimensions — all in one place,
-with zero setup required.
+Instead of manually inspecting raw datasets, users get immediate, *
+standardised* diagnostics — communicated in the TDWG Biodiversity Data
+Quality (BDQ) vocabulary the global community already uses.
 
 ---
 
 ## Why does this matter?
 
 GBIF aggregates hundreds of millions of occurrence records from thousands of
-data publishers worldwide. However, many records contain quality issues such
-as missing or zero coordinates, coordinates falling outside the stated
-country boundary, duplicate records, low coordinate precision and temporal
-gaps. These issues directly affect the reliability of biodiversity analyses,
-species distribution models and conservation assessments.
+publishers. Quality issues — missing or zero coordinates, country/coordinate
+mismatches, duplicates, low precision, temporal gaps — propagate directly
+into species distribution models, red-list assessments and policy
+indicators.
 
-BioSift makes it easy for anyone to assess, diagnose and clean occurrence
-data before using it in research or policy work — in seconds, not hours.
+BioSift closes the loop: **diagnose → benchmark → export evidence → fix at
+the source.**
 
 ---
 
@@ -45,179 +49,98 @@ data before using it in research or policy work — in seconds, not hours.
 
 | User | How they benefit |
 |---|---|
-| Researchers | Instantly assess data quality before analysis |
-| Conservationists | View spatial data gaps and reliability scores |
-| Data managers | Identify which datasets are dragging down quality |
-| Policy makers | Understand data reliability for decision making |
-| Educators | Explore biodiversity data visually |
+| Researchers | Pre-flight data audit before SDMs and trend analyses |
+| Conservationists | IUCN status + spatial gap maps + reliability scores |
+| Data managers | Per-dataset defect attribution with A–F grades |
+| Node staff | Publisher report cards in the shared BDQ vocabulary |
+| Policy analysts | Indicator-grade exports for GBF reporting workflows |
+| Educators | A living, visual lesson in biodiversity data quality |
 
 ---
 
 ## Features
 
-### Species Analysis Mode
-
-**Data Quality (10 automated checks)**
-- Data health score (0–100%) with visual progress bar
-- Record completeness score — % of important fields filled per record
-- Missing coordinates detection
-- Zero coordinates detection
-- Missing year detection
-- Pre-1900 historical records flag
-- Missing event date detection
-- Duplicate records detection
-- Low coordinate precision flag (< 2 decimal places)
-- Country coordinate mismatch — flags records where coordinates
-  fall outside the stated country boundary
-
-**Spatial Analysis**
-- Interactive point map (green = clean, red = flagged)
-- Heatmap
-- DBSCAN spatial outlier detection and map
-- Species Distribution Model preview (Kernel Density Estimation)
-- Global data gap map (10° grid cells) with spatial coverage alerts
-
-**Temporal Analysis**
-- Records per year chart with trend line
-- Records by decade chart
-- First/last record, year span, gap count
-- Temporal insights (peak year, CS surge detection, major gap detection)
-
-**Charts & Statistics**
-- Observation density by country (% of total)
-- Records per month (seasonal patterns)
-- Basis of record breakdown
-- Top 10 countries
-- Coordinate precision tiers (5 levels, ~10km to ~1m)
+### Species Analysis
+- **10 automated quality checks, each mapped to its official
+  [TDWG BDQ](https://github.com/tdwg/bdq) test** — the community-standard
+  vocabulary for biodiversity data quality
+- Data health score + record completeness score with visual scoring
+- **GBIF-wide benchmarking** — defect rates compared live against the full
+  GBIF population matching the same species + filters
+- **IUCN Red List category** displayed on the species card
+- Per-record reliability scores, data fitness-for-use badges, coordinate
+  precision tiers, multimedia quality (incl. broken-image sampling)
 - Per-contributing-dataset quality breakdown with A–F grades
 
-**Assessment**
-- Data fitness for 5 scientific use cases
-- Per-record reliability scoring (0–100)
-- Automated recommendations engine
-- Multimedia quality (coverage % + broken URL detection)
+### Spatial & temporal intelligence
+- Five map modes: point map, heatmap, DBSCAN outliers, SDM (KDE) preview,
+  and the 10°-grid global data gap map with coverage alerts
+- Records-per-year trends, decade breakdowns, citizen-science surge
+  detection, peak-year and major-gap insights, seasonal patterns
 
-**Export & Reproducibility**
-- Full dataset CSV
-- Clean records CSV
-- Reliability-scored CSV
-- Darwin Core Archive (DwC-A) — standards-compliant ZIP:
-  occurrence.csv + meta.xml + eml.xml
-- Clean Darwin Core Archive
-- Reproducible methods paragraph (publication-ready)
-- GBIF dataset citation generator (APA and BibTeX formats)
+### Publication-grade exports
+- **📦 Reproducibility Pack (ZIP)** — `biosift_report.json` (versioned
+  machine-readable schema), paste-ready methods text, APA + BibTeX
+  citations, full/clean CSVs, the standards-compliant DwC-A, and
+  `recipe.json` containing the exact GBIF API requests to regenerate the
+  sample
+- **📄 Branded PDF quality report** for theses, DMPs and grant appendices
+- **🧊 GBIF data-cube SQL** — indicator-grade cube queries targeting the
+  GBIF SQL download service used by EU B-Cubed pipelines
 
-### Batch Comparison Mode
-- Compare quality metrics across up to 5 species side by side
-- Accepts comma or newline-separated species names
-- Configurable year range and records per species
-- Health score cards, full comparison table, grouped bar chart
-- Downloadable comparison CSV
-
-### Publisher Report Card Mode
-- Search any GBIF data publishing institution by name
-- View all published datasets with record counts
-- Coordinate coverage percentage per dataset
-- Dataset creation and last modified dates
-- Downloadable publisher report CSV
+### Batch Comparison & Publisher Report Card
+- Side-by-side quality comparison of up to five species
+- Institution-level report card for any GBIF publisher
 
 ---
 
-## Quick Start
-
-**No installation needed:**
-
-👉 Open [biosift-gbif.streamlit.app](https://biosift-gbif.streamlit.app)
-
-1. Enter a species scientific name (e.g. `Panthera leo`)
-   or select from Quick Select samples
-2. Set optional year range and basis of record filters
-3. Set maximum records (default 500, max 10,000)
-4. Click **Run Analysis**
-5. Explore 6 tabs:
-   Overview · Occurrence Map · Temporal Analysis ·
-   Charts · Gap Analysis · Data & Export
-
----
-
-## Local Installation
-
-### Requirements
-- Python 3.10+
-- pip
-
-### Steps
+## Running locally
 
 ```bash
-# 1. Clone the repository
-git clone https://github.com/Hansen-arch/biosift.git
-cd biosift
-
-# 2. Create virtual environment
-python3 -m venv venv
-source venv/bin/activate
-
-# 3. Install dependencies
+git clone <this-repo>
+cd <this-repo>
+python -m venv venv
+source venv/bin/activate        # Windows: venv\Scripts\activate
 pip install -r requirements.txt
-
-# 4. Run the app
 streamlit run app.py
+```
 
-App opens at http://localhost:8501
-Project Structure
+The app talks only to public GBIF API endpoints — no API key needed.
 
-text
+---
 
-biosift/
-├── app.py                    ← main Streamlit app (3 modes)
-├── utils/
-│   ├── gbif_fetch.py         ← GBIF API, pagination, caching
-│   ├── quality.py            ← 10 quality checks, completeness,
-│   │                            country mismatch, precision stats
-│   ├── maps.py               ← point map, heatmap
-│   ├── charts.py             ← temporal, geographic, density charts
-│   ├── outliers.py           ← DBSCAN spatial outlier detection
-│   ├── sdm.py                ← KDE species distribution model
-│   ├── reliability.py        ← reliability scoring, methods
-│   │                            generator, citation generator
-│   ├── gaps.py               ← global gap map + spatial alerts
-│   ├── publisher.py          ← publisher report card
-│   ├── species_info.py       ← species card: photo, taxonomy
-│   ├── dwc.py                ← Darwin Core Archive builder
-│   └── dataset_quality.py   ← per-dataset quality breakdown
-├── .streamlit/
-│   └── config.toml           ← dark theme
-├── requirements.txt
-├── LICENSE
-└── README.md
+## Standards alignment
 
-Data Sources
+| Standard | How BioSift uses it |
+|---|---|
+| TDWG BDQ (TG2 core tests) | Every quality check is labelled with its official test ID |
+| Darwin Core | Exports emit valid dwc terms; DwC-A includes `meta.xml` + EML |
+| GBIF data cubes | Cube exports target the GBIF SQL download service |
+| IUCN Red List | Categories surfaced via the GBIF species API |
 
-    Occurrence data: GBIF.org — Global Biodiversity Information Facility
+---
 
-All data accessed via free, open public APIs. No data is stored or redistributed by BioSift.
-Tech Stack
-Library	Purpose
-Python 3.12	Core language
-Streamlit	Web UI framework
-pygbif	GBIF API wrapper
-pandas	Data manipulation
-folium	Interactive maps
-plotly	Interactive charts
-scikit-learn	DBSCAN outlier detection
-scipy	Kernel density estimation
-numpy	Numerical computation
-requests	API calls
-License
+## Project structure
 
-MIT License — see LICENSE for details.
+```
+app.py                 # entry point — st.navigation wiring
+views/                 # one module per page (home, analysis, batch, …)
+utils/
+  theme.py             # design system: tokens, components, chart theming
+  bdq.py               # TDWG BDQ test mapping
+  benchmark.py         # GBIF-wide population benchmarking
+  reppack.py           # Reproducibility Pack builder
+  pdf_report.py        # branded PDF report
+  cube.py              # GBIF SQL data-cube exports
+  quality.py           # the 10 quality checks
+  gbif_fetch.py        # GBIF occurrence API client
+  …                    # maps, charts, sdm, gaps, dwc, publisher, …
+```
 
-Open source, free to use, free to modify.
-Author
+---
 
-Reihan Apriandi github.com/Hansen-arch
-Built for
+## License
 
-2026 GBIF Ebbe Nielsen Challenge gbif.org/news/3DyM3tK5wgYipqyaHwG2c2
-
-Advancing open science through better biodiversity data intelligence.
+MIT — see [LICENSE](LICENSE). GBIF-mediated data are shared under CC-BY;
+please cite contributing datasets (BioSift generates these citations for
+you in the Data & Export tab).
