@@ -206,10 +206,9 @@ def _run_analysis(species_input, year_from, year_to, basis_filter, limit,
     completeness = get_completeness_score(df)
 
     progress.progress(0.9, text="Building ecological context…")
-    genus = species_input.split()[0] if species_input else ""
     genus_df = fetch_genus_assemblage(
-        genus, year_from=year_from, year_to=year_to
-    ) if genus else genus_df_empty()
+        species_input, year_from=year_from, year_to=year_to
+    ) if species_input else genus_df_empty()
 
     progress.progress(1.0, text="Done!")
     progress.empty()

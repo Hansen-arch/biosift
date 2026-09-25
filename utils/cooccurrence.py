@@ -22,17 +22,37 @@ GBIF = "https://api.gbif.org/v1/occurrence/search"
 
 
 @st.cache_data(ttl=86400, show_spinner=False)
-def fetch_genus_assemblage(genus, limit=1200, year_from=None,
+def fetch_genus_assemblage(target_species, limit=1000, year_from=None,
                            year_to=None):
     """
-    Fetch occurrence counts per species within the genus (excluding the
-    target species itself is done by the caller), paginating the GBIF
-    species-facet. Returns DataFrame [species, records].
+    Fetch occurrence counts per species within the target's genus.
+
+    GBIF API quirks handled here (both verified empirically):
+      - `facet=species` is silently ignored; `facet=scientificName`
+        returns full canonical names (authorship included).
+      - the `genus` text parameter is unreliable on occurrence/search;
+        resolving the genus via /species/match and filtering by
+        `genusKey` is the dependable route.
+
+    Returns DataFrame [species, records] (species = canonical name,
+    authorship stripped downstream).
     """
+    try:
+        m = requests.get(
+            "https://api.gbif.org/v1/species/match",
+            params={"name": target_species, "strict": "false"},
+            timeout=20,
+        ).json()
+        gkey = m.get("genusKey")
+        if not gkey:
+            return pd.DataFrame(columns=["species", "records"])
+    except Exception:
+        return pd.DataFrame(columns=["species", "records"])
+
     params = {
-        "genus": genus,
+        "taxonKey": gkey,
         "limit": 0,
-        "facet": "species",
+        "facet": "scientificName",
         "facetLimit": min(limit, 1000),
     }
     if year_from and year_to:
@@ -43,12 +63,24 @@ def fetch_genus_assemblage(genus, limit=1200, year_from=None,
         facets = data.get("facets", [])
         counts = facets[0].get("counts", []) if facets else []
         rows = [
-            {"species": b["name"], "records": int(b["count"])}
+            {
+                "species": b["name"],
+                "records": int(b["count"]),
+            }
             for b in counts if b.get("name")
         ]
-        return pd.DataFrame(rows)
+        return pd.DataFrame(rows, columns=["species", "records"])
     except Exception:
         return pd.DataFrame(columns=["species", "records"])
+
+
+def _strip_authorship(name):
+    """'Panthera onca (Linnaeus, 1758)' -> 'Panthera onca'."""
+    if not isinstance(name, str):
+        return name
+    if "(" in name:
+        return name.split("(")[0].strip()
+    return name.strip()
 
 
 def grid_presence(df, grid=1.0):
@@ -110,8 +142,19 @@ def build_cooccurrence(target_species, target_df, genus_df, max_partners=8):
     """
     target_cells = grid_presence(target_df)
 
-    congeners = genus_df[
-        genus_df["species"].str.lower() != target_species.lower()
+    if (genus_df is None or genus_df.empty
+            or "species" not in genus_df.columns):
+        return {
+            "genus": target_species.split()[0] if target_species else "",
+            "assemblage_size": 0,
+            "target_cells": len(target_cells),
+            "partners": [],
+        }
+
+    congeners = genus_df.copy()
+    congeners["species"] = congeners["species"].map(_strip_authorship)
+    congeners = congeners[
+        congeners["species"].str.lower() != target_species.lower()
     ].sort_values("records", ascending=False)
 
     top = congeners.head(max_partners)

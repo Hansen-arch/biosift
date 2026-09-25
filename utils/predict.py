@@ -56,11 +56,11 @@ def _km_per_degree(lat):
     return km_lat, km_lon
 
 
-def convex_hull_area_km2(lat, lon):
+def convex_hull_points(lat, lon):
     """
-    Area of the convex hull of occurrence points (km²), computed in a
-    local equirectangular projection centred on the data (avoids
-    external geo deps). Returns (area_km2, n_hull_points, warnings[]).
+    Compute the convex hull polygon (lon/lat rings) via Andrew's
+    monotone chain in a local equirectangular frame, then unproject.
+    Returns (hull_lonlat[list], area_km2, warnings[]).
     """
     warnings = []
     pts = np.column_stack([lat, lon])
@@ -69,11 +69,10 @@ def convex_hull_area_km2(lat, lon):
         return 0.0, 0, ["fewer than 3 georeferenced records"]
 
     lat0 = float(np.mean(pts[:, 0]))
-    km_lat, _ = _km_per_degree(lat0)
     km_lon = 111.32 * np.cos(np.radians(lat0))
 
     x = pts[:, 1] * km_lon
-    y = pts[:, 0] * km_lat
+    y = pts[:, 0] * 111.32
 
     # Andrew's monotone chain convex hull
     P = sorted(zip(x, y))
@@ -81,22 +80,22 @@ def convex_hull_area_km2(lat, lon):
     def cross(o, a, b):
         return (a[0]-o[0])*(b[1]-o[1]) - (a[1]-o[1])*(b[0]-o[0])
 
-    lower = []
-    for p in P:
-        while len(lower) >= 2 and cross(lower[-2], lower[-1], p) <= 0:
-            lower.pop()
-        lower.append(p)
-    upper = []
-    for p in reversed(P):
-        while len(upper) >= 2 and cross(upper[-2], upper[-1], p) <= 0:
-            upper.pop()
-        upper.append(p)
+    def half(points):
+        h = []
+        for p in points:
+            while len(h) >= 2 and cross(h[-2], h[-1], p) <= 0:
+                h.pop()
+            h.append(p)
+        return h
+
+    lower = half(P)
+    upper = half(reversed(P))
     hull = lower[:-1] + upper[:-1]
 
     if len(hull) < 3:
-        return 0.0, len(hull), ["degenerate hull"]
+        return [], 0.0, ["degenerate hull — fewer than 3 extreme points"]
 
-    # shoelace
+    # shoelace area in km²
     area = 0.0
     n = len(hull)
     for i in range(n):
@@ -110,7 +109,27 @@ def convex_hull_area_km2(lat, lon):
             "hull exceeds Earth's land area — likely cosmopolitan or "
             "erroneous outliers (Burgio 2021 caveat)"
         )
-    return area_km2, len(hull), warnings
+
+    # unproject hull vertices back to lon/lat
+    hull_lonlat = [
+        [float(px) / km_lon, float(py) / 111.32] for px, py in hull
+    ]
+    return hull_lonlat, area_km2, warnings
+
+
+def hull_geojson(hull_lonlat):
+    """Wrap hull ring as a GeoJSON Polygon Feature (or None)."""
+    if not hull_lonlat or len(hull_lonlat) < 3:
+        return None
+    ring = hull_lonlat + [hull_lonlat[0]]  # close the ring
+    return {
+        "type": "Feature",
+        "properties": {"name": "eoo_convex_hull"},
+        "geometry": {
+            "type": "Polygon",
+            "coordinates": [ring],
+        },
+    }
 
 
 def aoo_km2(lat, lon, cell_km=2):
@@ -143,17 +162,20 @@ def screen_kba_b(eoo, aoo, iucn_category=""):
     Returns dict with b1, b2 flags and contextual notes.
     Note: Criterion B formally applies to *threatened/restricted-range*
     species; without confirmed Red List status this is indicative only.
+    Flags are coerced to plain bool (numpy.bool_ is not JSON-safe).
     """
-    b1 = eoo <= KBA_B1_EOO_KM2 and eoo > 0
-    b2 = aoo <= KBA_B2_AOO_KM2 and aoo > 0
+    b1 = bool(eoo <= KBA_B1_EOO_KM2 and eoo > 0)
+    b2 = bool(aoo <= KBA_B2_AOO_KM2 and aoo > 0)
     return {
         "b1_meets": b1,
         "b2_meets": b2,
         "b1_note": (
-            f"EOO {eoo:,.0f} km² vs B1 threshold {KBA_B1_EOO_KM2:,} km²"
+            f"EOO {float(eoo):,.0f} km² vs B1 threshold "
+            f"{KBA_B1_EOO_KM2:,} km²"
         ),
         "b2_note": (
-            f"AOO {aoo:,.0f} km² vs B2 threshold {KBA_B2_AOO_KM2:,} km²"
+            f"AOO {float(aoo):,.0f} km² vs B2 threshold "
+            f"{KBA_B2_AOO_KM2:,} km²"
         ),
         "iucn_category": iucn_category,
     }
@@ -170,7 +192,7 @@ def run_distribution_metrics(df, iucn_category=""):
     if ok.sum() < 3:
         return None
 
-    eoo, n_hull, hull_warnings = convex_hull_area_km2(
+    hull_lonlat, eoo, hull_warnings = convex_hull_points(
         lat[ok].values, lon[ok].values
     )
     aoo, n_cells = aoo_km2(lat[ok].values, lon[ok].values)
@@ -181,8 +203,9 @@ def run_distribution_metrics(df, iucn_category=""):
         "eoo_km2": eoo,
         "aoo_km2": aoo,
         "aoo_cells": n_cells,
-        "hull_points": n_hull,
+        "hull_points": len(hull_lonlat),
         "hull_warnings": hull_warnings,
+        "hull_geojson": hull_geojson(hull_lonlat),
         "kba": kba,
         "caveat": CAVEAT,
         "citations": CITATIONS,

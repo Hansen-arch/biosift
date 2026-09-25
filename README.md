@@ -109,6 +109,32 @@ the source.**
 
 ---
 
+## Two apps, one science layer
+
+| | Streamlit app | Standalone (FastAPI + MapLibre) |
+|---|---|---|
+| Run | `streamlit run app.py` | `uvicorn standalone.server:app --port 8080` |
+| UI | Multi-page data app | Single-page inspector + WebGL map |
+| Map | Leaflet/folium | MapLibre GL JS (no key, no token) |
+| API | — | `GET /api/analysis/{species}` (OpenJSON docs at `/docs`) |
+| Use case | Interactive exploration | Automation, integration, self-hosting |
+
+Both use the same `utils/` science layer: identical checks, identical
+standards, identical verdicts.
+
+### Standalone API example
+
+```bash
+uvicorn standalone.server:app --port 8080
+curl "localhost:8080/api/analysis/Panthera%20leo?limit=300" | jq .scores
+```
+
+The bundle includes BDQ-mapped checks, GBIF-wide benchmarking, SDM
+readiness (Zizka 2020 / Marcer 2022 profiles), EOO/AOO + KBA Criterion
+B screening with hull GeoJSON, GloBI interactions, and congeneric
+co-occurrence (Jaccard) — one JSON document, schema
+`biosift.analysis/1.1`.
+
 ## Running locally
 
 ```bash
