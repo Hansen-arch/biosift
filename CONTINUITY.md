@@ -1,8 +1,107 @@
 # BioSift — Project Continuity
 
 > Living document. Update after every milestone so any future session can
-> resume with full context. Last updated: 2026-09-26 (v2.1 professionalism
-> + interactions + SDM readiness).
+> resume with full context. **Current version: v3.1** (2026-09-26).
+
+---
+
+## ⏯ START HERE — next session
+
+### What BioSift is now (v3.1, all verified working)
+
+A biodiversity data-quality & distribution-intelligence platform over
+the public GBIF API, shipped as **two apps on one science layer**:
+
+1. **Streamlit app** (`app.py`) — multi-page: Home, Species Analysis
+   (10 tabs: Overview, Occurrence Map, Temporal, Charts, Ecological
+   Community, Distribution & KBA, Carbon, SDM Readiness, Gap Analysis,
+   Data & Export), Batch Comparison, Publisher Report, Methods &
+   Standards.
+2. **Standalone** (`standalone/server.py` + `standalone/frontend.py`)
+   — FastAPI JSON API + MapLibre GL JS single-page inspector. No API
+   keys anywhere. Dockerfile + compose ready.
+
+Science layer (`utils/`): TDWG BDQ-mapped quality checks, GBIF-wide
+benchmarking, SDM readiness gates (Zizka 2020 / Marcer 2022, 2
+strictness profiles), EOO/AOO + KBA Criterion B screening (+ hull
+GeoJSON), GloBI interactions, congeneric co-occurrence (Jaccard),
+plant carbon scenarios (Chave 2014 + IPCC 2006), Reproducibility Pack,
+PDF report, data-cube SQL.
+
+### Run everything
+
+```bash
+git clone https://github.com/Hansen-arch/biosift && cd biosift
+python -m venv venv && source venv/bin/activate
+pip install -r requirements.txt
+
+streamlit run app.py                          # Streamlit :8501
+uvicorn standalone.server:app --port 8080     # Standalone :8080
+docker compose up --build                     # Standalone in Docker
+```
+
+Smoke tests:
+```bash
+curl localhost:8080/api/health
+curl "localhost:8080/api/analysis/Quercus%20robur?limit=200" | jq .carbon
+curl "localhost:8080/api/analysis/Panthera%20leo?limit=300" | jq .sdm_readiness.verdict
+# expect: oak carbon ~140.8 t CO2e/150 rec · lion SDM "NOT READY"
+```
+
+UI audit (headless Chrome CDP, needs websocket-client):
+```bash
+BIOSIFT_URL=http://localhost:8622 venv/bin/python scripts/ui_audit.py pages
+BIOSIFT_URL=http://localhost:8622 venv/bin/python scripts/ui_audit.py analysis
+```
+
+### Known issues / pending (pick up here)
+
+1. **Streamlit Cloud URL is login-walled**
+   (biosift-gbif.streamlit.app → /-/login). Sharing was disabled or the
+   app suspended server-side. FIX: share.streamlit.io → app → Settings
+   → Sharing → make public. Code on main is current; nothing else
+   blocks it.
+2. **Docker verified by simulation only** — sandbox has no daemon
+   (sudo needed). Fresh-dir build + clean pip install + production CMD
+   boot all passed (see Docker verification section below). On a real
+   host: `docker compose up --build`, confirm container goes healthy.
+3. **Sandbox quirk**: host port 8080 is occupied by a SearXNG instance
+   — irrelevant inside a container, but for local uvicorn tests use
+   e.g. 8090/8095/8096.
+4. Analysis bundles take 30–75 s (multi-request GBIF + GloBI + genus
+   facet). If it feels slow next session: parallelise inside
+   `standalone/server.py:analysis()` or cache genus_df by genus key.
+
+### Prioritised roadmap
+
+1. pytest suite (carbon, fitness gates, co-occurrence, interactions
+   filtering) — protects the science during refactors
+2. GitHub Actions: build Docker image on push + run API smoke tests
+3. Re-enable Streamlit Cloud sharing (user, 2 minutes)
+4. Per-record DBH uncertainty bands for carbon (Monte-Carlo around the
+   30 cm scenario instead of a fixed point)
+5. Species gallery with images (gaia-style discovery view)
+6. Authenticated GBIF downloads for >10k-record species
+
+### Hard-won API knowledge (do not re-learn)
+
+- **GBIF occurrence search**: `facet=species` is a silent NO-OP — use
+  `facet=scientificName` (returns authorship; strip with
+  `_strip_authorship`) + `taxonKey=<genusKey from /species/match>`.
+  The `genus=` text param is IGNORED on occurrence/search.
+- **GloBI**: the fuzzy `q=` search returns name-resolution garbage
+  (citations/DOIs in taxon fields). Use directional `sourceTaxon=` /
+  `targetTaxon=` params; keep `_valid_taxon_name()` filtering.
+- **Chave 2014 returns AGB in kg** for D in cm, H in m, WD in g/cm³ —
+  do NOT divide by 1000 again.
+- **numpy.bool_ breaks FastAPI JSON** — coerce flags with bool() in
+  `screen_kba_b`.
+- **st.Page needs unique `url_path=`** when page callables share a
+  name (all views export `render`).
+- **Streamlit h1 font reset** beats single-class selectors — use
+  `.hero .hero-title` specificity.
+
+---
 
 ## Project
 
@@ -14,7 +113,7 @@
 - **Stack**: Python 3.12, Streamlit 1.58, Plotly, Folium, reportlab,
   scikit-learn. venv/ is committed-ignore; run with `venv/bin/streamlit run app.py`.
 
-## Why v2.0 exists (research-backed rationale)
+## History — why v2.0 exists (pre-competition-removal rationale)
 
 Jury criteria for the challenge: **relevance, novelty, quality, openness &
 repeatability**. 2025 winners were a BDQ email QC service (GBIF Norway) and
@@ -23,22 +122,44 @@ GBIF Work Programme 2026 priorities: reproducible FAIR indicator workflows,
 data quality at the source, DOI citation, TDWG BDQ, GBIF SQL data cubes
 (B-Cubed). Every v2.0 feature maps to one of those.
 
-## Architecture (v2.0)
+## Architecture (current, v3.1)
 
 ```
-app.py               entry point — st.Page(...url_path=...) + st.navigation
-views/               one render() per page: home, analysis, batch,
-                     publisher, methods
-utils/theme.py       design system: C colour tokens, CSS, metric_card,
-                     score_hero, badge, alert, style_fig
-utils/bdq.py         maps the 10 quality checks to official TDWG BDQ IDs
-utils/benchmark.py   GBIF-wide defect-rate baseline (count + facet API)
-utils/reppack.py     Reproducibility Pack ZIP (report JSON, methods,
-                     citations, CSVs, nested DwC-A, recipe.json, README)
-utils/pdf_report.py  branded PDF via reportlab
-utils/cube.py        GBIF SQL data-cube query builder
-utils/quality.py     the 10 checks + completeness + multimedia (pre-existing)
-utils/gbif_fetch.py  occurrence API client, pygbif, cached (pre-existing)
+app.py                Streamlit entry — st.Page(unique url_path) + nav
+views/                home, analysis (10 tabs), batch, publisher, methods
+standalone/
+  server.py           FastAPI: /api/health, /api/analysis/{species}
+                      (bundle biosift.analysis/1.1), /api/.../map, /
+  frontend.py         MapLibre GL JS single-file UI (gaia-style landing:
+                      numbered capabilities + audience chips)
+Dockerfile            python:3.12-slim, uvicorn 0.0.0.0:8080, 2 workers
+docker-compose.yml    healthcheck (CMD-SHELL /api/health), restart policy
+utils/
+  theme.py            design system: C tokens, CSS, metric_card, alert,
+                      score_hero, style_fig (ink/emerald, Fraunces+Inter)
+  icons.py            inline SVG line icons (icon('dna', 20)) — NO emoji
+  bdq.py              10 checks → official TDWG BDQ test IDs
+  quality.py          the checks + completeness + multimedia stats
+  gbif_fetch.py       occurrence client (pygbif, cached; now fetches
+                      coordinateUncertaintyInMeters too)
+  benchmark.py        GBIF-wide defect baseline (count + facet API)
+  fitness.py          SDM readiness gates, 2 strictness profiles,
+                      Zizka/Marcer citations
+  predict.py          EOO (hull→GeoJSON) + AOO (2×2 km) + KBA-B screen
+  carbon.py           Chave 2014 + IPCC 2006 plant carbon scenarios
+  interactions.py     GloBI client (directional queries + filtering)
+  cooccurrence.py     genus assemblage + 1° Jaccard overlap
+  basemaps.py         key-free XYZ registry (Esri default; NO Carto)
+  maps.py / gaps.py / sdm.py   folium builders (all basemap-aware)
+  reppack.py          Reproducibility Pack ZIP (report JSON incl.
+                      fitness + interactions, methods, citations, CSVs,
+                      nested DwC-A, recipe.json)
+  pdf_report.py       branded PDF (reportlab)
+  cube.py             GBIF SQL data-cube query builder
+  species_info.py     species/match + IUCN chip helper
+scripts/ui_audit.py   raw-CDP audit driver (pages|analysis phases;
+                      BIOSIFT_URL env, default :8622)
+CONTINUITY.md         this file
 ```
 
 Design language: ink `#0B0F14` bg, emerald `#22C58B` accent, Fraunces
