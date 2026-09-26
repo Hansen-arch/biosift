@@ -72,10 +72,17 @@ app.add_middleware(
 )
 
 
-def _clean_records(df: pd.DataFrame, limit=200):
-    """JSON-safe row list from the analysed frame."""
+def _clean_records(df: pd.DataFrame, flags: pd.DataFrame | None = None,
+                   limit=200):
+    """JSON-safe row list from the analysed frame.
+
+    When the flags frame is passed, each row also carries the BioSift
+    BDQ verdict (biosift_flag / biosift_flags) so map colours and
+    popups agree with the analysis tables instead of GBIF's benign
+    `issues` column (COORDINATE_ROUNDED etc.).
+    """
     out = []
-    for _, row in df.head(limit).iterrows():
+    for i, (_, row) in enumerate(df.head(limit).iterrows()):
         rec = {}
         for col, val in row.items():
             if isinstance(val, float) and np.isnan(val):
@@ -86,8 +93,17 @@ def _clean_records(df: pd.DataFrame, limit=200):
                 rec[col] = int(val)
             elif isinstance(val, (np.floating,)):
                 rec[col] = None if np.isnan(val) else float(val)
+            elif isinstance(val, (np.bool_,)):
+                rec[col] = bool(val)
             else:
                 rec[col] = val
+        if flags is not None and i < len(flags):
+            f = flags.iloc[i]
+            rec["biosift_flag"] = bool(f["any_flag"])
+            rec["biosift_flags"] = [
+                c for c in flags.columns
+                if c not in ("any_flag", "has_issues") and bool(f[c])
+            ]
         out.append(rec)
     return out
 
@@ -216,6 +232,15 @@ def analysis(
         "sdm_readiness": fit,
         "distribution_kba": dist,
         "temporal": temporal,
+        "year_counts": (
+            [
+                {"year": int(r["year"]), "count": int(r["count"])}
+                for _, r in df[df["year"].notna()]
+                .assign(year=lambda x: x["year"].astype(int))
+                .groupby("year").size().reset_index(name="count")
+                .iterrows()
+            ] or None
+        ),
         "interactions": {
             "source": "GloBI — globalbioticinteractions.org",
             "total": len(interactions),
@@ -232,7 +257,8 @@ def analysis(
         "precision_stats": get_precision_stats(df),
         "multimedia": get_multimedia_stats(df),
         "records": (
-            {"analysed": _clean_records(df), "clean": _clean_records(clean_df)}
+            {"analysed": _clean_records(df, flags),
+             "clean": _clean_records(clean_df)}
             if include_records else None
         ),
     }
