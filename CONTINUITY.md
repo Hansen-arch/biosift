@@ -45,7 +45,9 @@ Smoke tests:
 curl localhost:8080/api/health
 curl "localhost:8080/api/analysis/Quercus%20robur?limit=200" | jq .carbon
 curl "localhost:8080/api/analysis/Panthera%20leo?limit=300" | jq .sdm_readiness.verdict
-# expect: oak carbon ~140.8 t CO2e/150 rec · lion SDM "NOT READY"
+# expect: oak SDM READY · carbon per_tree.co2e_t ~0.94 t; sample_totals scale
+#   with GBIF sample (150 rec ~140.8 t CO2e, 500 rec ~469.3 t / 11.26 t/yr)
+#   · lion SDM "NOT READY"
 ```
 
 UI audit (headless Chrome CDP, needs websocket-client):
@@ -61,13 +63,16 @@ BIOSIFT_URL=http://localhost:8622 venv/bin/python scripts/ui_audit.py analysis
    app suspended server-side. FIX: share.streamlit.io → app → Settings
    → Sharing → make public. Code on main is current; nothing else
    blocks it.
-2. **Docker verified by simulation only** — sandbox has no daemon
-   (sudo needed). Fresh-dir build + clean pip install + production CMD
-   boot all passed (see Docker verification section below). On a real
-   host: `docker compose up --build`, confirm container goes healthy.
-3. **Sandbox quirk**: host port 8080 is occupied by a SearXNG instance
-   — irrelevant inside a container, but for local uvicorn tests use
-   e.g. 8090/8095/8096.
+2. ~~Docker verified by simulation only~~ **RESOLVED 2026-09-26**:
+   first real `docker compose up --build` succeeded — container
+   biosift-standalone healthy in ~38 s; health, frontend, /docs and a
+   full oak bundle all 200 (record: "Docker build verification" below).
+3. **Host quirk**: SearXNG on this machine is a Docker container bound
+   to 8080. It was STOPPED for the biosift build — `docker start
+   searxng` restores it. Local uvicorn tests: use 8090/8095/8096.
+   Docker access from the agent shell: `sg docker -c "..."` (hans was
+   added to the docker group without re-login); compose v2 v5.5.1
+   plugin installed user-space at ~/.docker/cli-plugins/.
 4. Analysis bundles take 30–75 s (multi-request GBIF + GloBI + genus
    facet). If it feels slow next session: parallelise inside
    `standalone/server.py:analysis()` or cache genus_df by genus key.
@@ -368,10 +373,35 @@ Audit history: every version was verified live via CDP (screenshots in
 cloud attempts, 30–43 new tabs + tiles, 40–43 v2.2, 50 live-deploy,
 60–62 standalone v3.0, 70–72 v3.1).
 
-## Docker build verification (2026-09-26)
+## Docker build verification (2026-09-26) — REAL BUILD SUCCEEDED
 
-Docker daemon unavailable in sandbox (needs sudo), so verification was
-done by SIMULATION — the strongest possible without a runtime:
+**REAL BUILD RECORD (2026-09-26, host hans-ThinkPad-X230):**
+
+1. Docker engine appeared on host (socket /var/run/docker.sock up);
+   `sudo usermod -aG docker hans` granted access (used via `sg docker
+   -c` from the agent shell — no re-login needed).
+2. Compose v2 v5.5.1 plugin installed user-space (~/.docker/cli-plugins/);
+   legacy docker-compose v1.29.2 also present but v2 is what runs.
+3. Removed obsolete `version:` attribute from docker-compose.yml
+   (compose v2 warning cleanup) — config then validated warning-free.
+4. SearXNG container stopped to free host 8080 (`docker start searxng`
+   restores it).
+5. `docker compose up --build -d` → 11 steps, image
+   gbif-quickcheck-biosift:latest built, container biosift-standalone
+   created and started on first attempt. No build errors.
+6. **healthy in ~38 s** (start_period 20s, interval 30s, retries 3).
+   Cold build+boot comfortably under the ~2 min pip-layer estimate.
+7. Live verification: /api/health 200 {"status":"ok","gbif_api":"ok"}
+   (GBIF reachable from inside the container); frontend / 200 (23.6
+   kB); /docs 200; full oak bundle HTTP 200 in 87 s — schema
+   biosift.analysis/1.1, 8 quality checks, SDM READY,
+   carbon.per_tree.co2e_t 0.939, carbon.sample_totals 469.3 t CO2e /
+   11.26 t-yr over 500 records, equivalences + Chave/IPCC/Zanne
+   citations all present. Matches all pre-verified expected values.
+
+The simulation record below (kept for history) was done before daemon
+access existed — it predicted this build correctly, including the
+healthcheck YAML bug it caught:
 
 1. `docker compose config` unavailable (old docker CLI) → validated
    docker-compose.yml with Python yaml.safe_load instead. **This caught
