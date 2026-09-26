@@ -118,6 +118,32 @@ BIOSIFT_URL=http://localhost:8622 venv/bin/python scripts/ui_audit.py analysis
 - **Stack**: Python 3.12, Streamlit 1.58, Plotly, Folium, reportlab,
   scikit-learn. venv/ is committed-ignore; run with `venv/bin/streamlit run app.py`.
 
+## v3.2 — standalone feature-parity push (2026-09-26)
+
+Map/interaction (MapLibre official patterns): click popups with
+record detail + BDQ verdict chips + source-record link; clustering
+(clusterMaxZoom 8) with flagged-ratio-tinted clusters + count labels
+(demotiles glyph server — verified 200). Point colours now come from
+the BioSift BDQ verdict (`records.analysed[*].biosift_flag/
+biosift_flags`, new in bundle) instead of GBIF's benign `issues`
+string — oak: 55 red / 145 green, agreeing with the 74.2 % health
+score (was: everything red).
+
+Panel: temporal section (SVG sparkline from new bundle `year_counts`,
+span/gaps/trend/recent/citizen-science rows, major-gap chips), SDM
+gate-by-gate table (pass/fail + profile + citations), completeness
+tile, JSON bundle + records CSV export buttons, fluid panel width
+`clamp(320px,29vw,420px)`, table-layout fixed + overflow-wrap:anywhere
+(anti-truncation), exports section.
+
+Audit (`scripts/ui_audit_standalone.py` v3): text-clip detector
+(scrollWidth/Height probe), map-colour ↔ analysis cross-check, real
+cluster + popup click tests (project→container-offset math), 4-viewport
+matrix (1440×900, 1092×560 = user's 1366×768 @125 %, 820×900, 390×844
+mobile) asserting form-above-fold, reachability and zero clipped text
+at every size; `SA_PHASE=viewport` fast mode. FULL RUN: ALL CHECKS
+PASSED against the Docker build.
+
 ## History — why v2.0 exists (pre-competition-removal rationale)
 
 Jury criteria for the challenge: **relevance, novelty, quality, openness &
@@ -226,6 +252,25 @@ plain text.
    the user literally could not see or reach the form. Pitch now lives
    below the form inside .scroll. Audit asserts form above fold at
    1092×560 AND 820×900.
+3. **MapLibre v4 cluster features expose `point_count` /
+   `point_count_abbreviated`** — filters written as `['has','count']`
+   silently match NOTHING (empty layers, no error). This made every
+   point render through the leaf layers at world zoom. Also: cluster
+   colour from summed leaf flags needs `clusterProperties` + a
+   `case`/`max` expression (paint arrays must be valid expressions).
+4. **`fitness.CITATIONS` is a dict**, not a list — any frontend
+   `(fit.citations||[]).map(...)` throws and kills the whole render
+   (cascades: no map layers, no hull). Guard with type checks.
+5. **CDP/map coordinate facts (do not re-learn)**: `map.project()`
+   returns CONTAINER-relative px — add the map div's bounding-rect
+   offset for CDP mouse clicks; `jumpTo` returns the map object, so
+   never return it from Runtime.evaluate ("Object reference chain is
+   too long") — wrap in an IIFE; leaves only exist above
+   clusterMaxZoom, and on SPARSE data a cluster centroid at z9 can be
+   empty — jump to a real leaf coordinate from `window.__lastGeo`.
+6. **Bundle embeds only the first 200 analysed rows** (`_clean_records`
+   limit) — per-record comparisons (e.g. map colour agreement) must be
+   against embedded rows, not the full-frame scores.
 1. **st.Page pathname collision** — five views exporting functions all
    named `render` made Streamlit infer URL pathname `render` for every
    page → `StreamlitAPIException: Multiple Pages specified with URL
