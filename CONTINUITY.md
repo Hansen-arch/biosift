@@ -218,7 +218,14 @@ plain text.
    New audit driver: `scripts/ui_audit_standalone.py` (boot, control
    hit-tests, real Run Analysis flow ×2 species, style-swap survival,
    narrow viewport) — `BIOSIFT_URL=http://localhost:8080
-   venv/bin/python scripts/ui_audit_standalone.py "Panthera leo"`.
+   venv/bin/python scripts/ui_audit_standalone.py "Panthera leo"`;
+   quick mode without the 2×90 s API runs: `SA_PHASE=viewport`.
+2. **Short-viewport fold rule** — the gaia pitch (capabilities +
+   audience, ~595 px) used to sit ABOVE the search form and pushed it
+   below the fold at 1366×768 physical (1092×560 CSS at 125 % zoom):
+   the user literally could not see or reach the form. Pitch now lives
+   below the form inside .scroll. Audit asserts form above fold at
+   1092×560 AND 820×900.
 1. **st.Page pathname collision** — five views exporting functions all
    named `render` made Streamlit infer URL pathname `render` for every
    page → `StreamlitAPIException: Multiple Pages specified with URL

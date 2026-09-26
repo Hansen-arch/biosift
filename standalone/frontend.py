@@ -44,8 +44,9 @@ body{
 .brand h1{font-size:19px;font-weight:700;letter-spacing:-.3px}
 .brand span{font-size:10px;letter-spacing:1.6px;color:var(--faint);
   text-transform:uppercase}
-/* gaia-style capability strip on landing */
-#capabilities{display:none;padding:26px 20px 10px}
+/* gaia-style capability strip (below the search form, inside .scroll;
+   shown at boot, hidden once results render) */
+#capabilities{display:none;padding:18px 0 10px}
 #capabilities .capgrid{display:grid;grid-template-columns:1fr;gap:8px}
 .cap{display:flex;gap:12px;align-items:flex-start;background:var(--card);
   border:1px solid var(--line);border-radius:12px;padding:12px 14px}
@@ -55,7 +56,7 @@ body{
   justify-content:center;margin-top:1px}
 .cap .t{font-size:13px;font-weight:600}
 .cap .d{font-size:11px;color:var(--dim);margin-top:1px;line-height:1.45}
-#audience{display:none;padding:8px 20px 20px}
+#audience{display:none;padding:8px 0 20px}
 #audience .aud{display:flex;flex-wrap:wrap;gap:6px}
 #audience .chip{font-size:10.5px}
 #panel .scroll{
@@ -166,33 +167,6 @@ td.num{text-align:right;font-variant-numeric:tabular-nums;color:var(--dim)}
         GBIF data-quality analysis · TDWG BDQ aligned
       </div>
     </header>
-    <div id="capabilities">
-      <div class="capgrid">
-        <div class="cap"><div class="n">1</div><div>
-          <div class="t">Audit occurrence data on demand</div>
-          <div class="d">Ten automated checks mapped to the official TDWG BDQ test vocabulary.</div></div></div>
-        <div class="cap"><div class="n">2</div><div>
-          <div class="t">Benchmark against the world</div>
-          <div class="d">Defect rates compared live against the full GBIF population.</div></div></div>
-        <div class="cap"><div class="n">3</div><div>
-          <div class="t">Relationships & communities</div>
-          <div class="d">GloBI interactions plus congeneric co-occurrence (Jaccard).</div></div></div>
-        <div class="cap"><div class="n">4</div><div>
-          <div class="t">Predict distribution & carbon</div>
-          <div class="d">EOO/AOO with KBA Criterion B screening; Chave 2014 carbon scenarios for plants.</div></div></div>
-        <div class="cap"><div class="n">5</div><div>
-          <div class="t">Model-ready or nothing</div>
-          <div class="d">SDM readiness gates cite Zizka 2020 and Marcer 2022 — strictness disclosed.</div></div></div>
-      </div>
-    </div>
-    <div id="audience">
-      <div class="aud">
-        <span class="chip ok">Researchers</span>
-        <span class="chip">Data managers</span>
-        <span class="chip">Node staff</span>
-        <span class="chip">Policy analysts</span>
-      </div>
-    </div>
     <div class="scroll">
       <div class="field">
         <label for="species">Scientific name</label>
@@ -236,6 +210,37 @@ td.num{text-align:right;font-variant-numeric:tabular-nums;color:var(--dim)}
       </div>
       <button id="run">Run Analysis</button>
       <div id="status" class="status">Search a species to begin.</div>
+
+      <!-- gaia-style pitch: lives BELOW the form so the search is
+           always above the fold on short screens (1366x768) -->
+      <div id="capabilities">
+        <h2 class="sec">Capabilities</h2>
+        <div class="capgrid">
+          <div class="cap"><div class="n">1</div><div>
+            <div class="t">Audit occurrence data on demand</div>
+            <div class="d">Ten automated checks mapped to the official TDWG BDQ test vocabulary.</div></div></div>
+          <div class="cap"><div class="n">2</div><div>
+            <div class="t">Benchmark against the world</div>
+            <div class="d">Defect rates compared live against the full GBIF population.</div></div></div>
+          <div class="cap"><div class="n">3</div><div>
+            <div class="t">Relationships & communities</div>
+            <div class="d">GloBI interactions plus congeneric co-occurrence (Jaccard).</div></div></div>
+          <div class="cap"><div class="n">4</div><div>
+            <div class="t">Predict distribution & carbon</div>
+            <div class="d">EOO/AOO with KBA Criterion B screening; Chave 2014 carbon scenarios for plants.</div></div></div>
+          <div class="cap"><div class="n">5</div><div>
+            <div class="t">Model-ready or nothing</div>
+            <div class="d">SDM readiness gates cite Zizka 2020 and Marcer 2022 — strictness disclosed.</div></div></div>
+        </div>
+      </div>
+      <div id="audience">
+        <div class="aud">
+          <span class="chip ok">Researchers</span>
+          <span class="chip">Data managers</span>
+          <span class="chip">Node staff</span>
+          <span class="chip">Policy analysts</span>
+        </div>
+      </div>
 
       <div id="results" style="display:none">
         <div class="metrics">

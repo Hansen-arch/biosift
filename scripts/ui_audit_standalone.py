@@ -85,6 +85,23 @@ def top_element(tab, selector):
     """)
 
 
+def top_element_no_scroll(tab, selector):
+    """Hit-test WITHOUT scrollIntoView (document scroll untouched)."""
+    return tab.js(f"""
+      (() => {{
+        const el = document.querySelector({json.dumps(selector)});
+        if (!el) return 'missing';
+        const r = el.getBoundingClientRect();
+        if (r.width < 2 || r.height < 2) return 'zero-size';
+        const top = document.elementFromPoint(
+            r.x + r.width / 2, r.y + r.height / 2);
+        return top ? (top.tagName + (top === el ? ' (self)' : ''
+            + ' (' + (top.id || top.className || '').toString()
+                      .slice(0, 40) + ')')) : 'none';
+      }})()
+    """)
+
+
 def set_input(tab, sel, value):
     return tab.js(f"""
       (() => {{
@@ -241,24 +258,67 @@ def basemap_after_results(tab):
 
 
 def narrow_viewport(tab):
-    print("== NARROW VIEWPORT (820x900) ==")
-    tab.send("Emulation.setDeviceMetricsOverride",
-             width=820, height=900, deviceScaleFactor=1, mobile=False)
-    time.sleep(2)
-    res = top_element(tab, "#run")
-    check("Run button reachable (narrow)", res.split(" ")[0] == "BUTTON",
-          res)
-    scrollable = tab.js("""
-      (() => {
-        const s = document.querySelector('#panel .scroll');
-        return s.scrollHeight > s.clientHeight ? 'scrolls'
-             : 'fits-without-scroll';
-      })()
-    """)
-    print(f"  panel: {scrollable}")
-    check("panel scrollable/reachable", scrollable in
-          ("scrolls", "fits-without-scroll"), scrollable)
-    tab.shot("narrow")
+    # 820x900: general mobile-ish; 1092x560 = 1366x768 physical at 125%
+    # browser zoom (user's ThinkPad X230) — regression: capability strip
+    # above the form consumed ~595px, pushing the search form below the
+    # fold on short viewports
+    for w, h in [(820, 900), (1092, 560)]:
+        print(f"== VIEWPORT {w}x{h} ==")
+        tab.send("Emulation.setDeviceMetricsOverride", width=w,
+                 height=h, deviceScaleFactor=1, mobile=False)
+        time.sleep(2)
+        # reset ALL scrolling (window + panel) for a deterministic
+        # fresh-load measurement — earlier scrollIntoView may have
+        # scrolled the document
+        tab.js("window.scrollTo(0,0);"
+               "document.querySelector('#panel .scroll')"
+               ".scrollTop=0")
+        time.sleep(1)
+        res = top_element_no_scroll(tab, "#run")
+        check(f"Run button reachable ({w}x{h})",
+              res.split(" ")[0] == "BUTTON", res)
+        pos = tab.js(f"""
+          (() => {{
+            const r = document.querySelector('#species')
+                .getBoundingClientRect();
+            const s = document.querySelector('#panel .scroll');
+            return JSON.stringify({{
+              form_top: Math.round(r.top), viewport_h: window.innerHeight,
+              win_scroll_y: Math.round(window.scrollY),
+              scroll_would: s.scrollHeight > s.clientHeight + 4,
+              scroll_top_now: Math.round(s.scrollTop)}});
+          }})()
+        """)
+        d = json.loads(pos)
+        ok = (d["form_top"] >= 0 and d["form_top"] < d["viewport_h"])
+        check(f"search form visible above fold ({w}x{h})", ok,
+              f"form_top={d['form_top']} viewport_h={d['viewport_h']}"
+              f" win_scroll_y={d['win_scroll_y']}")
+        # scroll panel to bottom: pitch + results must remain reachable
+        # scroll panel to its very bottom: the LAST content element
+        # must be hit-testable (proves nothing is clipped/unreachable)
+        tab.js("document.querySelector('#panel .scroll')"
+               ".scrollTo(0, 999999)")
+        time.sleep(1)
+        res2 = tab.js(f"""
+          (() => {{
+            const kids = document
+                .querySelector('#panel .scroll').children;
+            const last = kids[kids.length - 1];
+            const r = last.getBoundingClientRect();
+            const top = document.elementFromPoint(
+                r.x + r.width / 2, r.y + r.height / 2);
+            return JSON.stringify({{
+              last_id: last.id || last.className,
+              hit: top ? top.tagName : 'none',
+              bottom_visible: r.bottom <= window.innerHeight + 2}});
+          }})()
+        """)
+        d2 = json.loads(res2)
+        check(f"bottom content reachable after scroll ({w}x{h})",
+              d2["hit"] != "none" and d2["bottom_visible"],
+              f"last={d2['last_id']} hit={d2['hit']}")
+        tab.shot(f"vp_{w}x{h}")
     tab.send("Emulation.clearDeviceMetricsOverride")
     time.sleep(1)
 
@@ -311,21 +371,26 @@ def main():
 
         audit_controls(tab)
 
-        # desktop flow
-        run_analysis(tab, SPECIES)
-        basemap_after_results(tab)
+        # viewport-only mode (SA_PHASE=viewport): skip the 2x90s runs
+        if os.environ.get("SA_PHASE") == "viewport":
+            narrow_viewport(tab)
+            tab.close()
+        else:
+            # desktop flow
+            run_analysis(tab, SPECIES)
+            basemap_after_results(tab)
 
-        # repeatability: second species
-        run_analysis(tab, "Quercus robur", expect_hull=True)
-        carbon_txt = tab.js(
-            "document.getElementById('carbon').innerText.slice(0,80)")
-        check("oak carbon rendered", "CO" in (carbon_txt or "")
-              or "carbon" in (carbon_txt or "").lower()
-              or "t" in (carbon_txt or ""), carbon_txt or "empty")
+            # repeatability: second species
+            run_analysis(tab, "Quercus robur", expect_hull=True)
+            carbon_txt = tab.js(
+                "document.getElementById('carbon').innerText.slice(0,80)")
+            check("oak carbon rendered", "CO" in (carbon_txt or "")
+                  or "carbon" in (carbon_txt or "").lower()
+                  or "t" in (carbon_txt or ""), carbon_txt or "empty")
 
-        narrow_viewport(tab)
+            narrow_viewport(tab)
 
-        tab.close()
+            tab.close()
     finally:
         proc.terminate()
 
