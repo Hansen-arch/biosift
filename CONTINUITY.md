@@ -211,6 +211,14 @@ plain text.
 
 ## Gotchas learned (do not regress)
 
+1. **MapLibre v4 removeLayer/removeSource return void, NOT Promises**
+   — `.catch()` on them throws and killed every standalone run after
+   the first (map kept stale layers, status showed an error). Fixed in
+   `standalone/frontend.py: pushGeo()` with getLayer/getSource guards.
+   New audit driver: `scripts/ui_audit_standalone.py` (boot, control
+   hit-tests, real Run Analysis flow ×2 species, style-swap survival,
+   narrow viewport) — `BIOSIFT_URL=http://localhost:8080
+   venv/bin/python scripts/ui_audit_standalone.py "Panthera leo"`.
 1. **st.Page pathname collision** — five views exporting functions all
    named `render` made Streamlit infer URL pathname `render` for every
    page → `StreamlitAPIException: Multiple Pages specified with URL

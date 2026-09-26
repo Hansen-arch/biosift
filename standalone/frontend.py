@@ -385,13 +385,12 @@ function initMap(){
 function pushGeo({points, hull}){
   window.__lastGeo = {points, hull};
   if(!mapReady) return;
-  if(map.getSource('occ')) map.removeLayer('occ-hull-fill').catch(()=>{});
-  if(map.getSource('occ')){
-    ['occ-heat','occ-hull-fill','occ-hull-line','occ-pt-fill','occ-pt-stroke']
-      .forEach(id=>{ try{map.removeLayer(id);}catch(e){} });
-    map.removeSource('occ');
-    try{ map.removeSource('hull'); }catch(e){}
-  }
+  // MapLibre v4 removeLayer/removeSource return void (not Promises) —
+  // guard with getLayer/getSource, never .catch()
+  ['occ-heat','occ-hull-fill','occ-hull-line','occ-pt-fill','occ-pt-stroke']
+    .forEach(id=>{ try{ if(map.getLayer(id)) map.removeLayer(id); }catch(e){} });
+  if(map.getSource('occ')){ try{ map.removeSource('occ'); }catch(e){} }
+  if(map.getSource('hull')){ try{ map.removeSource('hull'); }catch(e){} }
   map.addSource('occ', {type:'geojson', data:points});
   map.addLayer({
     id:'occ-pt-stroke', type:'circle', source:'occ', paint:{
@@ -426,7 +425,15 @@ async function run(){
   const species=document.getElementById('species').value.trim();
   if(!species){ status.textContent='Enter a scientific name.'; return; }
   btn.disabled=true;
-  status.className='status'; status.textContent='Fetching from GBIF and running checks…';
+  status.className='status';
+  let secs=0;
+  const tick=setInterval(()=>{
+    secs+=1;
+    if(status.textContent.startsWith('Fetching'))
+      status.textContent='Fetching from GBIF and running checks… ('
+        + secs + 's)';
+  },1000);
+  status.textContent='Fetching from GBIF and running checks… (0s)';
 
   const q=new URLSearchParams({
     limit: document.getElementById('limit').value,
@@ -451,6 +458,7 @@ async function run(){
   }catch(e){
     status.className='status err'; status.textContent='Error: '+e.message;
   }finally{
+    clearInterval(tick);
     btn.disabled=false;
   }
 }
