@@ -409,6 +409,213 @@ def exports_smoke(tab):
     check("bundle cached for JSON export", bool(has))
 
 
+BYOD_CSV = (
+    "Scientific Name,Lat,Long,Year,Country,Notes\n"
+    "Panthera leo,-1.29,36.82,2021,Kenya,ok\n"
+    "Panthera leo,135,-25,2010,Australia,swap\n"
+    "P4nthera leo,-25.75,28.19,2030,South Africa,capital+future\n"
+    "Panthera leo,0.0,0.0,1999,,zero+edge\n"
+    "Panthera leo,-25.75,28.19,1995,South Africa,dup\n"
+    "Panthera leo,52.52,52.52,2010,Germany,equal latlon\n"
+    "Panthera leo,-33.92,18.42,2015,South Africa,capital\n"
+    "Panthera leo,-1.29,36.82,2021,Kenya,ok2\n"
+    "Panthera leo,-1.29,36.82,2021,Kenya,ok3\n"
+    "Panthera leo,42.3016,23.5001,2012,Bulgaria,clean\n")
+
+
+def byod_flow(tab):
+    """Full bring-your-own-data flow: mode switch, inspect, mapping,
+    analyze, byod-only sections, map verdict colours, popup, export."""
+    print("== BYOD FLOW ==")
+    tab.js("document.getElementById('mode-byod').click()")
+    time.sleep(1)
+    vis = tab.js("""
+      JSON.stringify({
+        byod: document.getElementById('byod-inputs').style.display,
+        gbif: document.getElementById('gbif-inputs').style.display,
+        results: document.getElementById('results').style.display,
+        subtitle: document.getElementById('subtitle').textContent})
+    """)
+    d = json.loads(vis)
+    check("mode switch shows byod inputs", d["byod"] == "block"
+          and d["gbif"] == "none", json.dumps(d)[:120])
+    check("mode switch hides stale results", d["results"] == "none")
+    check("subtitle updates in byod mode",
+          "your own dataset" in d["subtitle"], d["subtitle"])
+
+    # inject a file via DataTransfer (no native dialog needed)
+    inj = tab.js(f"""
+      (() => {{
+        const csv = {json.dumps(BYOD_CSV)};
+        const dt = new DataTransfer();
+        dt.items.add(new File([csv], 'audit_dirty.csv',
+          {{type: 'text/csv'}}));
+        const input = document.getElementById('file');
+        input.files = dt.files;
+        input.dispatchEvent(new Event('change', {{bubbles: true}}));
+        return 'injected';
+      }})()
+    """)
+    check("file injected + change fired", inj == "injected", inj)
+
+    # wait for the mapping table (inspect round-trip)
+    deadline = time.time() + 30
+    mapped = ""
+    while time.time() < deadline:
+        mapped = tab.js("""
+          (() => {
+            const sel = document.querySelector(
+              '#t-mapping select[data-canon="species"]');
+            return sel ? sel.value : '';
+          })()
+        """)
+        if mapped:
+            break
+        time.sleep(1)
+    check("inspect rendered mapping", mapped == "Scientific Name",
+          f"species column proposed: '{mapped}'")
+    lat = tab.js(
+        "document.querySelector('#t-mapping select[data-canon="
+        "\"decimalLatitude\"]').value")
+    lon = tab.js(
+        "document.querySelector('#t-mapping select[data-canon="
+        "\"decimalLongitude\"]').value")
+    check("coords auto-mapped", lat == "Lat" and lon == "Long",
+          f"lat='{lat}' lon='{lon}'")
+    note = tab.js("document.getElementById('map-note').textContent")
+    check("mapping note present", bool(note and len(note) > 3),
+          note[:80])
+    prev = tab.js(
+        "document.getElementById('preview').style.display")
+    check("sample preview shown", prev == "block", prev)
+
+    tab.js("document.getElementById('run-byod').click()")
+    time.sleep(2)
+    st = status_text(tab)
+    check("byod run started", "Analysing" in st, st[:60])
+    deadline = time.time() + 150
+    final = ""
+    while time.time() < deadline:
+        final = status_text(tab)
+        if "Analysis complete" in final or final.startswith("Error"):
+            break
+        time.sleep(2)
+    check("byod analysis completed", "Analysis complete" in final,
+          final[:100])
+    check("no page errors after byod run", len(errs(tab)) == 0,
+          json.dumps(errs(tab))[:200])
+
+    # namecheck cell text is uppercased by th styling — match loosely
+    ncv_txt = tab.js(
+        "document.getElementById('namecheck').innerText")
+
+    res = tab.js(
+        "document.getElementById('results').style.display")
+    check("byod results visible", res == "block", res)
+    prof = tab.js("""
+      (() => {
+        const pb = document.getElementById('profbox');
+        return pb.style.display + ' | ' + pb.innerText.slice(0, 90);
+      })()
+    """)
+    check("profile retention box rendered", str(prof).startswith("block"),
+          str(prof)[:100])
+    nchecks = tab.js("document.querySelectorAll('#t-checks tr').length")
+    check("17 byod checks listed", (nchecks or 0) >= 18,
+          f"{nchecks} rows (17 checks + header)")
+    flag_rows = tab.js(
+        "document.querySelectorAll('#flagged tr').length")
+    check("flagged-records table rendered", (flag_rows or 0) > 5,
+          f"{flag_rows} rows")
+    brk = tab.js(
+        "document.getElementById('speciesbrk').style.display")
+    check("species breakdown rendered", brk == "block", brk)
+    dsp = tab.js(
+        "document.getElementById('dsprofile').style.display")
+    check("dataset profile rendered", dsp == "block", dsp)
+    ncv_l = str(ncv_txt).lower()
+    check("name verification rendered",
+          bool(ncv_txt and ("exact" in ncv_l or "match" in ncv_l)),
+          str(ncv_txt)[:80].replace("\n", " | "))
+
+    ex = tab.js("window.__excludedSeen || 0")
+    fl = tab.js("window.__flaggedSeen || 0")
+    check("map colours carry verdicts (flagged+excluded > 0)",
+          ex > 0 and fl > 0, f"flagged={fl} excluded={ex}")
+    bundle_schema = tab.js("window.__bundle && window.__bundle.schema")
+    check("bundle schema biosift.byod/1.0",
+          bundle_schema == "biosift.byod/1.0", str(bundle_schema))
+
+    # popup on an EXCLUDED point must show the exclusion chip
+    coord = tab.js("""
+      (() => {
+        const fs = (window.__lastGeo && window.__lastGeo.points
+            && window.__lastGeo.points.features) || [];
+        const f = fs.find(f => f.properties.ex === 1);
+        if (!f) return 'null';
+        window.__pt = f.geometry.coordinates.slice();
+        return JSON.stringify(window.__pt);
+      })()
+    """)
+    if coord != "null":
+        # drop any popup left open by the previous test phase —
+        # its DOM would swallow the synthetic click
+        tab.js(
+            "(() => { const c = document.querySelector("
+            "'.maplibregl-popup-close-button');"
+            " if(c) c.click(); })()")
+        time.sleep(0.5)
+        tab.js("""
+          window.__idleB = new Promise(res => {
+            let done = false;
+            const fin = () => { if(!done){ done = true; res(1); } };
+            window.__map.once('idle', fin);
+            setTimeout(fin, 5000);
+          });
+          (() => { window.__map.jumpTo(
+              {center: window.__pt, zoom: 9}); })();
+        """)
+        time.sleep(1)
+        tab.js("window.__idleB")
+        xy = tab.js("window.__idleB.then(() => { const p = window.__map"
+                    ".project(window.__pt); const r = document"
+                    ".getElementById('map').getBoundingClientRect(); "
+                    "return JSON.stringify({x: Math.round(r.left + p.x), "
+                    "y: Math.round(r.top + p.y)}); })")
+        p = json.loads(xy)
+        for t in ("mousePressed", "mouseReleased"):
+            tab.send("Input.dispatchMouseEvent", type=t, x=p["x"],
+                     y=p["y"], button="left", clickCount=1)
+        time.sleep(1)
+        pop_txt = tab.js(
+            "document.querySelector('.maplibregl-popup-content')"
+            " ? document.querySelector('.maplibregl-popup-content')"
+            ".innerText : ''")
+        check("byod popup shows exclusion + reasons",
+              "Excluded by" in pop_txt,
+              pop_txt.replace("\n", " | ")[:100])
+    else:
+        check("byod popup shows exclusion + reasons", False,
+              "no excluded point on map")
+
+    # export round-trip: flagged CSV via /api/upload/export
+    tab.js("document.getElementById('exp-flagged').click()")
+    deadline = time.time() + 40
+    exp = ""
+    while time.time() < deadline:
+        exp = status_text(tab)
+        if "Export ready" in exp or "failed" in exp.lower():
+            break
+        time.sleep(1)
+    check("flagged CSV export round-trip", "Export ready" in exp,
+          exp[:80])
+
+    tab.shot("byod_results")
+    # restore GBIF mode for the remaining species runs
+    tab.js("document.getElementById('mode-gbif').click()")
+    time.sleep(1)
+
+
 def viewports(tab):
     print("== VIEWPORT MATRIX ==")
     for w, h in VIEWPORTS:
@@ -545,6 +752,7 @@ def main():
             basemap_after_results(tab)
             popup_and_cluster(tab)
             exports_smoke(tab)
+            byod_flow(tab)
 
             run_analysis(tab, "Quercus robur")
             carbon_txt = tab.js(
