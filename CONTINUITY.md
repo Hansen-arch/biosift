@@ -1,16 +1,17 @@
 # BioSift — Project Continuity
 
 > Living document. Update after every milestone so any future session can
-> resume with full context. **Current version: v3.1** (2026-09-26).
+> resume with full context. **Current version: v3.3** (2026-09-27).
 
 ---
 
 ## ⏯ START HERE — next session
 
-### What BioSift is now (v3.1, all verified working)
+### What BioSift is now (v3.3, all verified working)
 
 A biodiversity data-quality & distribution-intelligence platform over
-the public GBIF API, shipped as **two apps on one science layer**:
+the public GBIF API — **and over the user's own data (BYOD)** — shipped
+as **two apps on one science layer**:
 
 1. **Streamlit app** (`app.py`) — multi-page: Home, Species Analysis
    (10 tabs: Overview, Occurrence Map, Temporal, Charts, Ecological
@@ -144,7 +145,62 @@ mobile) asserting form-above-fold, reachability and zero clipped text
 at every size; `SA_PHASE=viewport` fast mode. FULL RUN: ALL CHECKS
 PASSED against the Docker build.
 
-## History — why v2.0 exists (pre-competition-removal rationale)
+## v3.3 — BYOD: bring-your-own-data analysis (2026-09-27)
+
+Research basis: CoordinateCleaner full test catalog (ropensci, Zizka
+2019 — cc_cap/cc_equ/cc_val/cd_round/cd_ddmm semantics), ALA data
+profiles (support.ala.org.au — fatal vs advisory filters applied to
+downloads), BDQ TG2 test vocabulary. Gap confirmed: no web tool
+combines GBIF-validation + geo plausibility + SDM readiness +
+distribution + **cleaned-data export** for uploaded datasets.
+
+- **standalone/byod.py** (engine): readers CSV/TSV/Excel/DwC-A
+  (meta.xml field mapping); column mapper (canonical + DWC_ALIASES +
+  fuzzy substring, used-column tracking); 9 BYOD-only checks on top
+  of the 8 shared ones: swap, capital (80-entry CAPITALS dict,
+  15 km haversine), edge, future-date, bad-name, equal-lat/lon
+  (cc_equ, (0,0) excluded), ddmm_suspect (cd_ddmm — DATASET-LEVEL:
+  suspect only when ≥10 fractional values and NONE ≥0.60),
+  dataset_rounded (cd_round — coarse 0.1/0.25/0.5/1.0° grids ≥80 %
+  share; 2-decimal data is NOT a hit), coordinate_hotspot (exact
+  pair repeated ≥10×). ALA-style PROFILES (General / SDM
+  (Zizka et al. 2020) / Report only) with fatal vs advisory checks →
+  profile_exclude/profile_advisory columns + retention stats.
+  `verify_names` is PARALLEL (8 workers, GBIF etiquette) — 200 names
+  ~8 s, was ~2 min serial. `cleaned_csv()` returns the USER'S file
+  back with biosift_flag/biosift_exclude/biosift_reasons appended,
+  or profile-filtered (mode=clean). `rows_geojson` carries
+  fl/ex/biosift_flags; impossible coords (|lat|>90, |lon|>180)
+  excluded MAP-ONLY (stay in tables/exports) — MapLibre throws
+  `Invalid LngLat` on fitBounds/jumpTo otherwise and kills renderByod.
+- **server endpoints**: POST /api/upload/inspect (metadata +
+  proposed_mapping + col_stats {filled%, distinct, kind, sample} +
+  3 sample rows), POST /api/upload/analyze (File + mapping +
+  dataset_name + profile Form; bundle schema biosift.byod/1.0 now
+  includes profile, column_profile, species_table, rounded_stats,
+  geojson with verdicts), POST /api/upload/export (mode=flagged|clean
+  → {filename, csv} JSON download).
+- **frontend**: segmented mode switch (GBIF species / Your data),
+  inspect → editable 24-row mapping table (core chips, per-column
+  filled/distinct stats, 3-row sample preview) → run → render:
+  profile retention box, 17-check table with triggered-count chips,
+  species breakdown, dataset profile, outliers, backbone name
+  verification, flagged records, recommendations; map colours
+  clean=green / flagged=amber / profile-excluded=red; popup shows
+  flags + 'Excluded by profile'; exports: JSON, GeoJSON, Flagged CSV,
+  Clean CSV. gbif-only sections hidden in BYOD mode (benchmark,
+  community, carbon). `pushGeo` now removes any stale popup (a
+  popup left open at the same coords swallows the next synthetic
+  click — real UX bug found by the audit).
+- **audit v4** (`ui_audit_standalone.py`): `byod_flow()` — mode
+  switch, file injection via DataTransfer, mapping assertions
+  (auto-mapping correctness), run, profile box, 17 checks, flagged
+  table, namecheck (case-insensitive — th CSS uppercases), verdict
+  colours on map, EXCLUDED-point popup content, flagged-CSV export
+  round-trip, then restores GBIF mode. FULL RUN: ALL CHECKS PASSED
+  (2×GBIF species + full BYOD + 4 viewports).
+- Design polish: joined segmented mode control, count chips in
+  section headers, profile summary box, amber legend entry.
 
 Jury criteria for the challenge: **relevance, novelty, quality, openness &
 repeatability**. 2025 winners were a BDQ email QC service (GBIF Norway) and
@@ -271,6 +327,24 @@ plain text.
 6. **Bundle embeds only the first 200 analysed rows** (`_clean_records`
    limit) — per-record comparisons (e.g. map colour agreement) must be
    against embedded rows, not the full-frame scores.
+7. **BYOD facts**: `byod.CANONICAL` = 24 canonical fields; mapper is
+   metadata-only and tolerant (missing fields skip gracefully);
+   `_jsonify()` sanitises numpy scalars (numpy.bool_ breaks FastAPI
+   JSON — again); name verification caps at 200 unique names and is
+   the latency driver — keep it parallel. MapLibre cannot render
+   |lat|>90/|lon|>180 (swapped coords!) — `rows_geojson` filters them
+   map-only, and `renderByod` filters defensively client-side too.
+8. **Stale popups swallow clicks**: a MapLibre popup left open sits
+   ON TOP of the canvas in DOM — a synthetic click at the same pixel
+   hits the popup, not the map (queryRenderedFeatures still sees the
+   point → tests pass in isolation but fail after a prior popup
+   phase). `pushGeo` now closes any open popup when new data is
+   pushed; the audit closes it before click tests.
+9. **cd_ddmm/cd_round are DATASET-LEVEL tests** — naive per-record
+   implementations flag every normal 2-decimal coordinate
+   (synthetic 300-row test proved it: 300/300 false positives).
+   ddmm requires zero fractions ≥0.60 across the dataset;
+   rounded requires ≥80 % share on a coarse grid.
 1. **st.Page pathname collision** — five views exporting functions all
    named `render` made Streamlit infer URL pathname `render` for every
    page → `StreamlitAPIException: Multiple Pages specified with URL

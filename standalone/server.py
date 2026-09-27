@@ -27,7 +27,7 @@ sys.path.insert(
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, UploadFile, File, Form
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -263,6 +263,134 @@ def analysis(
         ),
     }
     return JSONResponse(bundle)
+
+
+# ────────────────────────────────────────── bring-your-own-data (BYOD)
+
+@app.post("/api/upload/inspect")
+async def upload_inspect(file: UploadFile = File(...)):
+    """Read an uploaded file and propose a column mapping.
+
+    Metadata only — no analysis. The frontend shows the proposed
+    mapping for user confirmation (review step, like GBIF IPT).
+    """
+    from standalone import byod
+    try:
+        raw = await file.read()
+        df_raw = byod.read_any(file.filename, raw)
+    except Exception as e:
+        raise HTTPException(400, f"could not read file: {e}")
+    if df_raw.empty:
+        raise HTTPException(400, "file contains no data rows")
+    df_mapped, applied = byod.map_columns(df_raw)
+    present = [c for c in byod.CANONICAL if c in df_mapped.columns]
+    missing = [c for c in byod.CANONICAL
+               if c not in df_mapped.columns
+               and c in ("species", "decimalLatitude", "decimalLongitude",
+                         "year")]
+    nrows = len(df_raw)
+    col_stats = {}
+    for c in df_raw.columns:
+        s = df_raw[c]
+        st = {
+            "filled_pct": round(float(s.notna().mean()) * 100, 1)
+            if nrows else 0.0,
+            "distinct": int(s.nunique(dropna=True)),
+            "kind": "numeric" if pd.api.types.is_numeric_dtype(s)
+            else "text",
+        }
+        if st["kind"] == "text":
+            vals = s.dropna().astype(str).unique()[:3]
+            st["sample"] = [v[:32] for v in vals]
+        col_stats[str(c)] = st
+    return {
+        "filename": file.filename,
+        "rows": nrows,
+        "columns": list(df_raw.columns),
+        "col_stats": byod._jsonify(col_stats),
+        "sample_rows": byod._jsonify(
+            df_raw.head(3).astype(object).where(
+                pd.notna(df_raw.head(3)), None).to_dict("records")),
+        "proposed_mapping": applied,
+        "core_present": present,
+        "core_missing": missing,
+        "needs_mapping": len(missing) > 0,
+    }
+
+
+@app.post("/api/upload/analyze")
+async def upload_analyze(
+    file: UploadFile = File(...),
+    mapping: str = Form(None),
+    dataset_name: str = Form(""),
+    profile: str = Form("General"),
+):
+    """Full analysis of an uploaded dataset (same science layer as
+    the species endpoint + geographic tests + name verification)."""
+    from standalone import byod
+    try:
+        raw = await file.read()
+        df_raw = byod.read_any(file.filename, raw)
+    except Exception as e:
+        raise HTTPException(400, f"could not read file: {e}")
+    import json as _json
+    mapping_dict = None
+    if mapping:
+        try:
+            mapping_dict = _json.loads(mapping)
+        except Exception:
+            raise HTTPException(400, "mapping must be valid JSON")
+    try:
+        bundle = byod.analyze_uploaded(
+            df_raw, mapping=mapping_dict,
+            dataset_name=dataset_name or file.filename,
+            profile=profile)
+        return bundle
+    except ValueError as e:
+        raise HTTPException(422, str(e))
+    except Exception as e:
+        raise HTTPException(500, f"analysis failed: {e}")
+
+
+@app.post("/api/upload/export")
+async def upload_export(
+    file: UploadFile = File(...),
+    mapping: str = Form(None),
+    profile: str = Form("General"),
+    mode: str = Form("flagged"),
+):
+    """The user's own dataset back, with BioSift verdict columns.
+
+    mode=flagged keeps every row and appends biosift_flag /
+    biosift_exclude / biosift_reasons; mode=clean returns only rows
+    passing the fit-for-use profile.
+    """
+    from standalone import byod
+    try:
+        raw = await file.read()
+        df_raw = byod.read_any(file.filename, raw)
+    except Exception as e:
+        raise HTTPException(400, f"could not read file: {e}")
+    import json as _json
+    mapping_dict = None
+    if mapping:
+        try:
+            mapping_dict = _json.loads(mapping)
+        except Exception:
+            raise HTTPException(400, "mapping must be valid JSON")
+    try:
+        csv_text = byod.cleaned_csv(df_raw, mapping_dict,
+                                    profile=profile, mode=mode)
+    except ValueError as e:
+        raise HTTPException(422, str(e))
+    except Exception as e:
+        raise HTTPException(500, f"export failed: {e}")
+    stem = (file.filename or "dataset").rsplit(".", 1)[0] or "dataset"
+    fname = f"biosift_{stem}_{mode}.csv"
+    return JSONResponse(
+        content={"filename": fname, "csv": csv_text},
+        headers={"Content-Disposition": f'attachment; filename="{fname}"'},
+    )
 
 
 @app.get("/api/analysis/{species}/map")

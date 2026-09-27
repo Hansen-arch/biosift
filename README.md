@@ -18,11 +18,13 @@ installation required.
 
 ## What is BioSift?
 
-BioSift audits the quality of GBIF occurrence data in seconds and turns the
-result into evidence a reviewer can trust: a standards-aligned quality
-audit, a benchmark against the full GBIF population, and one-click export of
-a Reproducibility Pack, PDF report, Darwin Core Archive and GBIF data-cube
-SQL.
+BioSift audits the quality of GBIF occurrence data — **or your own
+uploaded datasets** — in seconds and turns the result into evidence a
+reviewer can trust: a standards-aligned quality audit, a benchmark
+against the full GBIF population, and one-click export of a
+Reproducibility Pack, PDF report, Darwin Core Archive, GBIF data-cube
+SQL — and, for your own data, a cleaned copy of your file with every
+verdict appended.
 
 Instead of manually inspecting raw datasets, users get immediate, *
 standardised* diagnostics — communicated in the TDWG Biodiversity Data
@@ -57,6 +59,32 @@ the source.**
 ---
 
 ## Features
+
+### Bring your own data (standalone app)
+- **Upload a CSV, TSV, Excel file or Darwin Core Archive** — everything is
+  processed in-session, nothing is stored
+- Smart column mapping: Darwin Core terms, common aliases and fuzzy
+  matching are proposed automatically; confirm or adjust in an editable
+  mapping table with per-column fill statistics and a sample preview
+- **17 automated checks**: the TDWG BDQ-mapped core suite plus
+  CoordinateCleaner-style geographic tests (Zizka et al. 2019) —
+  coordinate swaps, capital-city proximity, coordinate edges, future
+  dates, implausible names, identical lat/lon, degree–minute conversion
+  errors, rasterized-coordinate detection and repeated-coordinate
+  hotspots
+- **Fit-for-use profiles** (ALA-style): *General*, *SDM*
+  (mirrors Zizka et al. 2020 and the ALA CSDM profile) or *Report only* —
+  every check is either fatal (record excluded) or advisory (reported,
+  kept), and retention is disclosed
+- **Your data back, cleaned**: download your file with
+  `biosift_flag` / `biosift_exclude` / `biosift_reasons` columns
+  appended, or only the rows passing the selected profile — plus GeoJSON
+  and the full analysis bundle
+- Taxon verification against the GBIF backbone, per-species quality
+  breakdown, DBSCAN spatial outliers, dataset-level rounding diagnosis
+  and column profiling
+- Interactive map with verdict colours (clean / flagged /
+  profile-excluded), clustering and per-record popups
 
 ### Species Analysis
 - **10 automated quality checks, each mapped to its official
@@ -117,6 +145,7 @@ the source.**
 | UI | Multi-page data app | Single-page inspector + WebGL map |
 | Map | Leaflet/folium | MapLibre GL JS (no key, no token) |
 | API | — | `GET /api/analysis/{species}` (OpenJSON docs at `/docs`) |
+| Bring your own data | — | Upload + audit + cleaned export |
 | Use case | Interactive exploration | Automation, integration, self-hosting |
 
 Both use the same `utils/` science layer: identical checks, identical
@@ -155,6 +184,22 @@ B screening with hull GeoJSON, GloBI interactions, and congeneric
 co-occurrence (Jaccard) — one JSON document, schema
 `biosift.analysis/1.1`.
 
+### BYOD API example
+
+```bash
+curl -F "file=@your_data.csv" localhost:8080/api/upload/inspect
+# → proposed column mapping + per-column statistics + sample rows
+
+curl -F "file=@your_data.csv" -F "profile=General" \
+  localhost:8080/api/upload/analyze | jq .profile
+# → full bundle: 17 checks, retention, SDM readiness, outliers,
+#   name verification, GeoJSON with per-record verdicts
+
+curl -F "file=@your_data.csv" -F "mode=clean" \
+  localhost:8080/api/upload/export -o cleaned.json
+# → your data back, filtered to rows that pass the profile
+```
+
 ## Running locally
 
 ```bash
@@ -175,6 +220,7 @@ The app talks only to public GBIF API endpoints — no API key needed.
 | Standard | How BioSift uses it |
 |---|---|
 | TDWG BDQ (TG2 core tests) | Every quality check is labelled with its official test ID |
+| CoordinateCleaner (Zizka et al. 2019) | BYOD geographic plausibility tests follow the cc_*/cd_* test semantics |
 | Darwin Core | Exports emit valid dwc terms; DwC-A includes `meta.xml` + EML |
 | GBIF data cubes | Cube exports target the GBIF SQL download service |
 | IUCN Red List | Categories surfaced via the GBIF species API |
