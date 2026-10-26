@@ -48,7 +48,7 @@ def build_sdm_map(df, basemap_name=None):
             folium.CircleMarker(
                 location=[la, lo],
                 radius=2,
-                color="#3FB950",
+                color=_density_color(0.1),
                 fill=True,
                 fill_opacity=0.5
             ).add_to(m)
@@ -85,11 +85,12 @@ def build_sdm_map(df, basemap_name=None):
 
 
 def _density_color(d):
+    from utils.theme import D
     if d >= 0.75:
-        return "#F85149"
+        return D["poor"]
     elif d >= 0.5:
-        return "#F0883E"
+        return D["sparse"]
     elif d >= 0.25:
-        return "#E3B341"
+        return D["mid"]
     else:
-        return "#3FB950"
+        return D["rich"]

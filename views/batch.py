@@ -1,5 +1,5 @@
 """
-BioSift — Batch Comparison page
+BioSift: Batch Comparison page
 """
 
 import re
@@ -84,8 +84,8 @@ def render():
     )
     if batch_limit > 400:
         st.warning(
-            f"{batch_limit} × 5 species = up to {batch_limit * 5:,} records "
-            f"— this will be slow. 200 or fewer recommended."
+            f"{batch_limit} × 5 species = up to {batch_limit * 5:,} records. "
+            f"That will be slow; 200 or fewer recommended."
         )
 
     if st.button("Compare Species", type="primary", use_container_width=True):
@@ -163,8 +163,8 @@ def _render_results():
     failed = [r for r in results if r["error"] is not None]
 
     st.caption(
-        f"Year range {used.get('from', '—')}–{used.get('to', '—')} · "
-        f"{used.get('limit', '—')} records per species"
+        f"Year range {used.get('from', 'n/a')}–{used.get('to', 'n/a')} · "
+        f"{used.get('limit', 'n/a')} records per species"
     )
     for f in failed:
         st.warning(f"Could not fetch **{f['species']}**: {f['error']}")
@@ -200,14 +200,14 @@ def _render_results():
             "Analysed": f"{r['analysed']:,}",
             "Health": f"{r['health']}%",
             "Completeness":
-                f"{r['completeness']}%" if r["completeness"] is not None else "—",
+                f"{r['completeness']}%" if r["completeness"] is not None else "n/a",
             "Duplicates": f"{r['duplicates']}%",
             "Missing coords": f"{r['missing_coords']}%",
             "Low precision": f"{r['low_precision']}%",
             "Country mismatch": f"{r['country_mismatch']}%",
             "Avg reliability":
                 f"{r['avg_reliability']}/100"
-                if r["avg_reliability"] is not None else "—",
+                if r["avg_reliability"] is not None else "n/a",
         })
     st.dataframe(pd.DataFrame(rows), use_container_width=True,
                  hide_index=True)

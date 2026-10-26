@@ -3,6 +3,8 @@ import plotly.graph_objects as go
 import pandas as pd
 import numpy as np
 
+from utils.theme import C, D
+
 
 def chart_records_per_year(df):
     try:
@@ -21,7 +23,7 @@ def chart_records_per_year(df):
             x=year_counts["year"],
             y=year_counts["count"],
             name="Records",
-            marker_color="#3FB950",
+            marker_color=D["clean"],
             opacity=0.8
         ))
 
@@ -35,17 +37,17 @@ def chart_records_per_year(df):
                 y=p(year_counts["year"]),
                 mode="lines",
                 name="Trend",
-                line=dict(color="#F0883E", width=2, dash="dash")
+                line=dict(color=C["orange"], width=2, dash="dash")
             ))
 
         fig.update_layout(
             title="Records per Year",
             xaxis_title="Year",
             yaxis_title="Records",
-            plot_bgcolor="#161B22",
-            paper_bgcolor="#161B22",
-            font_color="#F0F6FC",
-            legend=dict(bgcolor="#1C2128", bordercolor="#21262D")
+            plot_bgcolor="rgba(0,0,0,0)",
+            paper_bgcolor="rgba(0,0,0,0)",
+            font_color=C["text_dim"],
+            legend=dict(bgcolor="rgba(0,0,0,0)", bordercolor=C["line"])
         )
         return fig
 
@@ -79,15 +81,15 @@ def chart_records_per_month(df):
             y="count",
             title="Records per Month",
             labels={"month_name": "Month", "count": "Records"},
-            color_discrete_sequence=["#58A6FF"],
+            color_discrete_sequence=[C["blue"]],
             category_orders={
                 "month_name": list(month_names.values())
             }
         )
         fig.update_layout(
-            plot_bgcolor="#161B22",
-            paper_bgcolor="#161B22",
-            font_color="#F0F6FC"
+            plot_bgcolor="rgba(0,0,0,0)",
+            paper_bgcolor="rgba(0,0,0,0)",
+            font_color=C["text_dim"]
         )
         return fig
 
@@ -113,9 +115,9 @@ def chart_basis_of_record(df):
             color_discrete_sequence=px.colors.sequential.Greens_r
         )
         fig.update_layout(
-            plot_bgcolor="#161B22",
-            paper_bgcolor="#161B22",
-            font_color="#F0F6FC"
+            plot_bgcolor="rgba(0,0,0,0)",
+            paper_bgcolor="rgba(0,0,0,0)",
+            font_color=C["text_dim"]
         )
         return fig
 
@@ -140,13 +142,13 @@ def chart_top_countries(df):
             orientation="h",
             title="Top 10 Countries",
             labels={"country": "Country", "count": "Records"},
-            color_discrete_sequence=["#BC8CFF"]
+            color_discrete_sequence=[C["violet"]]
         )
         fig.update_layout(
             yaxis={"categoryorder": "total ascending"},
-            plot_bgcolor="#161B22",
-            paper_bgcolor="#161B22",
-            font_color="#F0F6FC"
+            plot_bgcolor="rgba(0,0,0,0)",
+            paper_bgcolor="rgba(0,0,0,0)",
+            font_color=C["text_dim"]
         )
         return fig
 
@@ -188,9 +190,9 @@ def chart_country_density(df):
             marker=dict(
                 color=chart_df["pct"],
                 colorscale=[
-                    [0.0, "#1F4D2F"],
-                    [0.5, "#2EA043"],
-                    [1.0, "#3FB950"]
+                    [0.0, "#CFE3D5"],
+                    [0.5, "#4E9A70"],
+                    [1.0, D["rich"]]
                 ],
                 showscale=False
             ),
@@ -201,7 +203,7 @@ def chart_country_density(df):
                 )
             ],
             textposition="outside",
-            textfont=dict(color="#8B949E", size=11),
+            textfont=dict(color=C["text_dim"], size=11),
             hovertemplate=(
                 "<b>%{y}</b><br>"
                 "Records: %{customdata:,}<br>"
@@ -214,12 +216,12 @@ def chart_country_density(df):
             title="Observation Density by Country (% of Total)",
             xaxis_title="% of Total Records",
             yaxis_title=None,
-            plot_bgcolor="#161B22",
-            paper_bgcolor="#161B22",
-            font_color="#F0F6FC",
+            plot_bgcolor="rgba(0,0,0,0)",
+            paper_bgcolor="rgba(0,0,0,0)",
+            font_color=C["text_dim"],
             xaxis=dict(
                 range=[0, chart_df["pct"].max() * 1.3],
-                gridcolor="#21262D"
+                gridcolor=C["line"]
             ),
             margin=dict(l=10, r=120, t=50, b=40),
             height=max(350, len(chart_df) * 28 + 80)
@@ -253,12 +255,12 @@ def chart_decade_breakdown(df):
             y="count",
             title="Records by Decade",
             labels={"decade": "Decade", "count": "Records"},
-            color_discrete_sequence=["#F0883E"]
+            color_discrete_sequence=[C["orange"]]
         )
         fig.update_layout(
-            plot_bgcolor="#161B22",
-            paper_bgcolor="#161B22",
-            font_color="#F0F6FC"
+            plot_bgcolor="rgba(0,0,0,0)",
+            paper_bgcolor="rgba(0,0,0,0)",
+            font_color=C["text_dim"]
         )
         return fig
 

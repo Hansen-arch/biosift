@@ -60,7 +60,7 @@ def build_gap_map(df, basemap_name=None):
 
                 folium.Rectangle(
                     bounds=[[lat_s, lon_w], [lat_n, lon_e]],
-                    color="#21262D",
+                    color="#8C8677",
                     weight=0.5,
                     fill=True,
                     fill_color=color,
@@ -84,14 +84,15 @@ def build_gap_map(df, basemap_name=None):
 
 
 def _gap_color(ratio):
+    from utils.theme import D
     if ratio >= 0.75:
-        return "#3FB950"
+        return D["rich"]
     elif ratio >= 0.4:
-        return "#E3B341"
+        return D["mid"]
     elif ratio >= 0.1:
-        return "#F0883E"
+        return D["sparse"]
     else:
-        return "#F85149"
+        return D["poor"]
 
 
 def get_gap_stats(df):

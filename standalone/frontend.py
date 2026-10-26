@@ -1,7 +1,9 @@
 """
 BioSift Standalone Frontend — single-file MapLibre GL JS app.
 
-Design notes (professional, non-AI-look):
+Design notes (light scholarly ledger, see DESIGN.md; antislop filter):
+  - warm paper + ink + one deep-emerald accent, flat surfaces, radius 4,
+    Georgia serif brand, system sans with tabular numerals
   - MapLibre GL JS (BSD-3, Mapbox GL v1 fork — no API key, no token)
   - key-free raster style built from verified XYZ endpoints (Esri Light
     Gray + World Imagery, OSM, OpenTopoMap — no CARTO, no API keys)
@@ -25,14 +27,15 @@ PAGE = r"""<!DOCTYPE html>
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>BioSift — Biodiversity Data Quality</title>
+<title>BioSift: Biodiversity Data Quality</title>
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet"/>
 <style>
 :root{
-  --bg:#0B0F14; --panel:#0F151C; --card:#111823; --line:#1F2A38;
-  --text:#E9EFF6; --dim:#8A97A8; --faint:#5C6879;
-  --acc:#22C58B; --red:#F2555A; --amber:#E8B339; --blue:#4DA3FF;
+  --bg:#F4F1E8; --panel:#EDE9DC; --card:#FBF9F2; --line:#D6CFBC;
+  --line-strong:#B9B09A;
+  --text:#232019; --dim:#5C5647; --faint:#6E6653;
+  --acc:#136F4E; --red:#A2382B; --amber:#75530F; --blue:#1D5FA8;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%}
@@ -51,7 +54,8 @@ body{
   padding:18px 20px 14px;border-bottom:1px solid var(--line);
 }
 .brand{display:flex;align-items:baseline;gap:10px}
-.brand h1{font-size:19px;font-weight:700;letter-spacing:-.3px}
+.brand h1{font-family:Georgia,"Times New Roman",serif;
+  font-size:20px;font-weight:700;letter-spacing:-.3px}
 .brand span{font-size:10px;letter-spacing:1.6px;color:var(--faint);
   text-transform:uppercase}
 /* gaia-style capability strip (below the search form, inside .scroll;
@@ -59,9 +63,10 @@ body{
 #capabilities{display:none;padding:18px 0 10px}
 #capabilities .capgrid{display:grid;grid-template-columns:1fr;gap:8px}
 .cap{display:flex;gap:12px;align-items:flex-start;background:var(--card);
-  border:1px solid var(--line);border-radius:12px;padding:12px 14px}
-.cap .n{font-size:11px;font-weight:700;color:var(--acc);
-  border:1px solid rgba(34,197,139,.4);border-radius:8px;
+  border:1px solid var(--line);border-radius:4px;padding:12px 14px}
+.cap .n{font-family:ui-monospace,Menlo,Consolas,monospace;
+  font-size:11px;font-weight:700;color:var(--dim);
+  border:1px solid var(--line-strong);border-radius:3px;
   min-width:22px;height:22px;display:flex;align-items:center;
   justify-content:center;margin-top:1px}
 .cap .t{font-size:13px;font-weight:600}
@@ -79,25 +84,25 @@ body{
 }
 .field input,.field select{
   width:100%;background:var(--card);border:1px solid var(--line);
-  color:var(--text);border-radius:8px;padding:9px 11px;font-size:13px;
+  color:var(--text);border-radius:4px;padding:9px 11px;font-size:13px;
   outline:none;
 }
 .field input:focus,.field select:focus{border-color:var(--acc)}
 .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-button#run{
-  width:100%;background:var(--acc);color:#04140D;border:none;
-  border-radius:9px;padding:11px;font-weight:700;font-size:13px;
+button#run, #run-byod{
+  width:100%;background:var(--acc);color:#F4F1E8;border:none;
+  border-radius:4px;padding:11px;font-weight:700;font-size:13px;
   cursor:pointer;margin-top:4px;
 }
 button#run:disabled{opacity:.55;cursor:wait}
-button#run:hover:not(:disabled){filter:brightness(1.08)}
+button#run:hover:not(:disabled){background:#106144}
 /* segmented mode switch (joined control, not loose buttons) */
 .modes{display:flex;gap:2px;margin-top:12px;background:var(--card);
-  border:1px solid var(--line);border-radius:9px;padding:2px}
+  border:1px solid var(--line);border-radius:4px;padding:2px}
 .modebtn{flex:1;background:transparent;border:none;color:var(--dim);
-  border-radius:7px;padding:7px 10px;font-size:11.5px;font-weight:700;
+  border-radius:3px;padding:7px 10px;font-size:11.5px;font-weight:700;
   cursor:pointer;letter-spacing:.3px}
-.modebtn.active{color:#04140D;background:var(--acc)}
+.modebtn.active{color:#F4F1E8;background:var(--acc)}
 /* profile summary box */
 #profbox{background:var(--card);border:1px solid var(--line);
   border-left:3px solid var(--acc);border-radius:10px;
@@ -106,31 +111,30 @@ button#run:hover:not(:disabled){filter:brightness(1.08)}
 #profbox b{font-weight:700}
 .countchip{display:none;font-size:9px;margin-left:2px}
 #t-mapping select{
-  width:100%;background:var(--bg);border:1px solid var(--line);
-  color:var(--text);border-radius:6px;padding:5px 7px;font-size:11.5px;
+  width:100%;background:var(--card);border:1px solid var(--line);
+  color:var(--text);border-radius:4px;padding:5px 7px;font-size:11.5px;
   outline:none;max-width:100%;}
 #t-mapping select:focus{border-color:var(--acc)}
 /* metrics */
 .metrics{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:4px 0 14px}
 .metric{background:var(--card);border:1px solid var(--line);
-  border-radius:10px;padding:10px 12px;min-width:0}
+  border-radius:4px;padding:10px 12px;min-width:0}
 .metric .k{font-size:9.5px;font-weight:600;letter-spacing:1.1px;
   text-transform:uppercase;color:var(--faint)}
 .metric .v{font-size:20px;font-weight:700;margin-top:2px;
   font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
 .metric .n{font-size:10.5px;color:var(--dim);margin-top:1px}
 .good{color:var(--acc)} .fair{color:var(--amber)} .poor{color:var(--red)}
-.bar{height:6px;background:var(--line);border-radius:99px;overflow:hidden;
-  margin-top:6px}
-.bar i{display:block;height:100%;border-radius:99px;
-  background:linear-gradient(90deg,#0E7A57,var(--acc))}
+.bar{height:6px;background:var(--panel);border:1px solid var(--line);
+  border-radius:2px;overflow:hidden;margin-top:6px}
+.bar i{display:block;height:100%;background:var(--acc)}
 /* sections */
 h2.sec{
   font-size:10.5px;font-weight:700;letter-spacing:1.6px;color:var(--faint);
   text-transform:uppercase;margin:18px 0 8px;display:flex;gap:8px;
   align-items:center;
 }
-h2.sec::after{content:"";flex:1;height:1px;background:var(--line)}
+h2.sec::after{content:"";flex:1;height:1px;background:var(--line-strong)}
 table{width:100%;border-collapse:collapse;font-size:12px;
   table-layout:fixed}
 table col.c-wide{width:auto}
@@ -146,9 +150,9 @@ td.num{text-align:right;font-variant-numeric:tabular-nums;color:var(--dim)}
 .chip{display:inline-block;font-size:9.5px;font-weight:700;
   padding:2px 7px;border-radius:99px;border:1px solid var(--line);
   color:var(--dim);margin:1px 2px 1px 0}
-.chip.ok{color:var(--acc);border-color:rgba(34,197,139,.45)}
-.chip.bad{color:var(--red);border-color:rgba(242,85,90,.45)}
-.chip.warn{color:var(--amber);border-color:rgba(232,179,57,.45)}
+.chip.ok{color:var(--acc);border-color:var(--acc);background:#DCEBE0}
+.chip.bad{color:var(--red);border-color:var(--red);background:#F1DAD3}
+.chip.warn{color:var(--amber);border-color:var(--amber);background:#F3E7C8}
 .note{font-size:11px;color:var(--dim);line-height:1.5;margin-top:6px;
   overflow-wrap:anywhere}
 .cite{font-size:10px;color:var(--faint);line-height:1.5;margin-top:6px}
@@ -157,14 +161,14 @@ td.num{text-align:right;font-variant-numeric:tabular-nums;color:var(--dim)}
 /* sparkline (records per year) */
 .spark{width:100%;height:56px;display:block;margin-top:4px}
 .spark .axis{stroke:var(--line);stroke-width:1}
-.spark path{fill:rgba(34,197,139,.15);stroke:var(--acc);stroke-width:1.5}
+.spark path{fill:rgba(30,122,84,.15);stroke:var(--acc);stroke-width:1.5}
 .gaps{margin-top:6px}
 /* export row */
 #exports{display:none;margin-top:16px}
 #exports .exp{display:flex;gap:8px;flex-wrap:wrap}
 #exports button{
-  background:var(--card);border:1px solid var(--line);color:var(--text);
-  border-radius:8px;padding:7px 12px;font-size:11.5px;font-weight:600;
+  background:var(--card);border:1px solid var(--line-strong);color:var(--text);
+  border-radius:4px;padding:7px 12px;font-size:11.5px;font-weight:600;
   cursor:pointer;
 }
 #exports button:hover{border-color:var(--acc);color:var(--acc)}
@@ -173,17 +177,15 @@ td.num{text-align:right;font-variant-numeric:tabular-nums;color:var(--dim)}
 #map{position:absolute;inset:0}
 #legend{
   position:absolute;left:12px;bottom:24px;z-index:5;
-  background:rgba(15,21,28,.92);border:1px solid var(--line);
-  border-radius:10px;padding:10px 12px;font-size:11px;color:var(--dim);
-  backdrop-filter:blur(4px);
+  background:rgba(251,249,242,.95);border:1px solid var(--line-strong);
+  border-radius:4px;padding:10px 12px;font-size:11px;color:var(--dim);
 }
 #legend .dot{display:inline-block;width:9px;height:9px;border-radius:50%;
   margin-right:6px;vertical-align:middle}
 #speciesbar{
   position:absolute;top:12px;left:12px;z-index:5;max-width:60%;
-  background:rgba(15,21,28,.92);border:1px solid var(--line);
-  border-radius:10px;padding:9px 14px;font-size:13px;
-  backdrop-filter:blur(4px);display:none;
+  background:rgba(251,249,242,.95);border:1px solid var(--line-strong);
+  border-radius:4px;padding:9px 14px;font-size:13px;display:none;
 }
 #speciesbar b{font-style:italic;overflow-wrap:anywhere}
 #speciesbar .chip{margin-left:8px}
@@ -192,16 +194,16 @@ td.num{text-align:right;font-variant-numeric:tabular-nums;color:var(--dim)}
 }
 .maplibregl-ctrl-group button+button{border-top:1px solid var(--line)!important}
 .maplibregl-ctrl-attrib{
-  background:rgba(15,21,28,.8)!important;color:var(--faint)!important;
+  background:rgba(251,249,242,.85)!important;color:var(--faint)!important;
   font-size:10px!important;
 }
 .maplibregl-ctrl-attrib a{color:var(--dim)!important}
 /* popups (MapLibre popup pattern) */
 .maplibregl-popup-content{
   background:var(--card)!important;color:var(--text)!important;
-  border:1px solid var(--line)!important;border-radius:10px!important;
+  border:1px solid var(--line)!important;border-radius:4px!important;
   padding:12px 14px!important;font-size:12px;line-height:1.5;
-  min-width:220px;max-width:290px;box-shadow:0 8px 28px rgba(0,0,0,.5);
+  min-width:220px;max-width:290px;box-shadow:0 2px 12px rgba(35,32,25,.22);
 }
 .maplibregl-popup-tip{border-top-color:var(--card)!important;
   border-bottom-color:var(--card)!important}
@@ -287,11 +289,11 @@ td.num{text-align:right;font-variant-numeric:tabular-nums;color:var(--dim)}
       <!-- Your-data mode inputs -->
       <div id="byod-inputs" style="display:none">
         <div class="field">
-          <label for="file">Dataset file — CSV, TSV, Excel or DwC-A zip</label>
+          <label for="file">Dataset file (CSV, TSV, Excel or DwC-A zip)</label>
           <input id="file" type="file"
                  accept=".csv,.tsv,.txt,.xlsx,.xls,.zip,.dwca"/>
           <div class="note">Everything is processed locally in this
-            session — the file is not stored. Column names are matched
+            session. The file is not stored. Column names are matched
             automatically (Darwin Core terms, common aliases) and you
             can adjust the mapping before running.</div>
         </div>
@@ -304,7 +306,7 @@ td.num{text-align:right;font-variant-numeric:tabular-nums;color:var(--dim)}
           </select>
         </div>
         <button id="inspect" style="width:100%;background:var(--card);
-          color:var(--text);border:1px solid var(--line);border-radius:9px;
+          color:var(--text);border:1px solid var(--line-strong);border-radius:4px;
           padding:10px;font-weight:700;font-size:12.5px;cursor:pointer">
           Inspect file</button>
         <div id="mapping" style="display:none">
@@ -327,7 +329,7 @@ td.num{text-align:right;font-variant-numeric:tabular-nums;color:var(--dim)}
         <h2 class="sec">Capabilities</h2>
         <div class="capgrid">
           <div class="cap"><div class="n">1</div><div>
-            <div class="t">Audit GBIF data — or your own</div>
+            <div class="t">Audit GBIF data, or your own</div>
             <div class="d">17 automated checks mapped to the official TDWG BDQ vocabulary. Bring a CSV, TSV, Excel file or DwC-A archive, or fetch any species live.</div></div></div>
           <div class="cap"><div class="n">2</div><div>
             <div class="t">Benchmark against the world</div>
@@ -356,46 +358,46 @@ td.num{text-align:right;font-variant-numeric:tabular-nums;color:var(--dim)}
         <div class="metrics">
           <div class="metric">
             <div class="k" id="m-total-k">GBIF records</div>
-            <div class="v" id="m-total">—</div>
+            <div class="v" id="m-total">n/a</div>
             <div class="n" id="m-total-n">matching filters</div>
           </div>
           <div class="metric">
             <div class="k">Analysed</div>
-            <div class="v" id="m-analysed">—</div>
+            <div class="v" id="m-analysed">n/a</div>
             <div class="n" id="m-completeness"></div>
           </div>
           <div class="metric">
             <div class="k">Health score</div>
-            <div class="v" id="m-health">—</div>
+            <div class="v" id="m-health">n/a</div>
             <div class="bar"><i id="m-healthbar" style="width:0%"></i></div>
           </div>
           <div class="metric">
             <div class="k">SDM-ready</div>
-            <div class="v" id="m-sdm">—</div>
+            <div class="v" id="m-sdm">n/a</div>
             <div class="n" id="m-sdmnote"></div>
           </div>
           <div class="metric byod-only" style="display:none">
             <div class="k">Profile retention</div>
-            <div class="v" id="m-keep">—</div>
+            <div class="v" id="m-keep">n/a</div>
             <div class="n" id="m-keepnote"></div>
           </div>
           <div class="metric byod-only" style="display:none">
             <div class="k">Flagged</div>
-            <div class="v" id="m-flag">—</div>
+            <div class="v" id="m-flag">n/a</div>
             <div class="n">any check triggered</div>
           </div>
         </div>
 
         <div id="profbox" class="byod-only" style="display:none"></div>
 
-        <h2 class="sec">Quality checks — TDWG BDQ <span class="chip countchip" id="cnt-checks"></span></h2>
+        <h2 class="sec">Quality checks, TDWG BDQ <span class="chip countchip" id="cnt-checks"></span></h2>
         <table id="t-checks">
           <colgroup><col class="c-wide"/><col class="c-bdq"/>
             <col class="c-num"/><col class="c-num"/></colgroup>
         </table>
 
         <h2 class="sec gbif-only">Benchmark vs GBIF-wide</h2>
-        <div id="benchmark" class="note gbif-only">—</div>
+        <div id="benchmark" class="note gbif-only">n/a</div>
 
         <h2 class="sec">Temporal coverage</h2>
         <div id="temporal"></div>
@@ -409,7 +411,7 @@ td.num{text-align:right;font-variant-numeric:tabular-nums;color:var(--dim)}
         <h2 class="sec gbif-only">Carbon (plants only)</h2>
         <div id="carbon" class="gbif-only"></div>
 
-        <h2 class="sec">SDM readiness — gate detail</h2>
+        <h2 class="sec">SDM readiness, gate detail</h2>
         <div id="sdm"></div>
 
         <h2 class="sec byod-only" style="display:none">Species breakdown <span class="chip countchip" id="cnt-species"></span></h2>
@@ -418,13 +420,13 @@ td.num{text-align:right;font-variant-numeric:tabular-nums;color:var(--dim)}
         <h2 class="sec byod-only" style="display:none">Dataset profile <span class="chip countchip" id="cnt-dsprof"></span></h2>
         <div id="dsprofile" class="byod-only" style="display:none"></div>
 
-        <h2 class="sec byod-only" style="display:none">Spatial outliers — DBSCAN <span class="chip countchip" id="cnt-outliers"></span></h2>
+        <h2 class="sec byod-only" style="display:none">Spatial outliers, DBSCAN <span class="chip countchip" id="cnt-outliers"></span></h2>
         <div id="outliers" class="byod-only" style="display:none"></div>
 
-        <h2 class="sec byod-only" style="display:none">Taxon verification — GBIF backbone <span class="chip countchip" id="cnt-names"></span></h2>
+        <h2 class="sec byod-only" style="display:none">Taxon verification, GBIF backbone <span class="chip countchip" id="cnt-names"></span></h2>
         <div id="namecheck" class="byod-only" style="display:none"></div>
 
-        <h2 class="sec byod-only" style="display:none">Flagged records — first 20 <span class="chip countchip" id="cnt-flagged"></span></h2>
+        <h2 class="sec byod-only" style="display:none">Flagged records, first 20 <span class="chip countchip" id="cnt-flagged"></span></h2>
         <div id="flagged" class="byod-only" style="display:none"></div>
 
         <h2 class="sec byod-only" style="display:none">Recommended actions <span class="chip countchip" id="cnt-recs"></span></h2>
@@ -449,13 +451,13 @@ td.num{text-align:right;font-variant-numeric:tabular-nums;color:var(--dim)}
   <div id="mapwrap">
     <div id="map"></div>
     <div id="speciesbar">
-      <b id="sb-name">—</b>
+      <b id="sb-name">No species yet</b>
       <span id="sb-chips"></span>
     </div>
     <div id="legend">
-      <span class="dot" style="background:var(--acc)"></span>Clean
-      &nbsp; <span class="dot" style="background:#E8B339"></span>Flagged
-      &nbsp; <span class="dot" style="background:var(--red)"></span>Excluded
+      <span class="dot" style="background:#1E7A54"></span>Clean
+      &nbsp; <span class="dot" style="background:#C9922B"></span>Flagged
+      &nbsp; <span class="dot" style="background:#C2402F"></span>Excluded
       <br/>
       <span style="font-size:9.5px;color:var(--faint)">
         Click a point for details · Basemap: top-right
@@ -465,7 +467,7 @@ td.num{text-align:right;font-variant-numeric:tabular-nums;color:var(--dim)}
 </div>
 
 <script>
-const ACC='#22C58B', RED='#F2555A';
+const ACC='#1E7A54', RED='#C2402F';
 let map, mapReady=false, popup=null;
 
 const BASEMAPS = {
@@ -512,7 +514,7 @@ function rasterStyle(base){
     },
     layers:[
       {id:'bg', type:'background', paint:{
-        'background-color': base==='dark' ? '#0B0F14' : '#0F151C'}},
+        'background-color': base==='dark' ? '#14171A' : '#F4F1E8'}},
       {id:'base', type:'raster', source:'base'},
     ],
   };
@@ -531,13 +533,15 @@ function initMap(){
 
   // basemap switcher (native select, professional styling)
   const sel = document.createElement('select');
-  sel.style.cssText = 'margin:10px 12px 0 0;padding:5px 8px;border-radius:7px;'
-    + 'background:#111823;color:#E9EFF6;border:1px solid #1F2A38;'
+  sel.style.cssText = 'margin:10px 12px 0 0;padding:5px 8px;border-radius:4px;'
+    + 'background:#FBF9F2;color:#232019;border:1px solid #B9B09A;'
     + 'font-size:11px;outline:none;float:right;';
   Object.entries(BASEMAPS).forEach(([k,v])=>{
     const o=document.createElement('option'); o.value=k;
     o.textContent=v.title; sel.appendChild(o);
   });
+  sel.addEventListener('focus', ()=>{ sel.style.borderColor='#136F4E'; });
+  sel.addEventListener('blur', ()=>{ sel.style.borderColor='#B9B09A'; });
   sel.addEventListener('change', ()=>{
     map.setStyle(rasterStyle(sel.value), {diff:false});
     map.once('styledata', ()=>{ if(window.__lastGeo) pushGeo(window.__lastGeo); });
@@ -580,7 +584,7 @@ function prettyFlag(s){
     .map(w=>w.charAt(0).toUpperCase()+w.slice(1)).join(' ');
 }
 
-const AMBER='#E8B339';
+const AMBER='#C9922B';
 const BYOD_FIELDS=['species','decimalLatitude','decimalLongitude','year',
   'eventDate','basisOfRecord','country','countryCode','stateProvince',
   'locality','coordinateUncertaintyInMeters','datasetName',
@@ -659,10 +663,10 @@ function popupHTML(p){
   const flagged = p.biosift_flag===true || p.biosift_flag==='true';
   const rows = [
     ['Species', '<i>'+esc(p.species)+'</i>'],
-    ['Year', esc(p.year!=null?p.year:'—')],
-    ['Country', esc(p.country||'—')],
-    ['Basis', esc(String(p.basisOfRecord||'—').replace(/_/g,' '))],
-    ['Dataset', esc(p.datasetName||'—')],
+    ['Year', esc(p.year!=null?p.year:'n/a')],
+    ['Country', esc(p.country||'n/a')],
+    ['Basis', esc(String(p.basisOfRecord||'n/a').replace(/_/g,' '))],
+    ['Dataset', esc(p.datasetName||'n/a')],
   ];
   if(p.coordinateUncertaintyInMeters!=null){
     rows.push(['Coord. uncertainty',
@@ -722,10 +726,10 @@ function pushGeo({points, hull}){
       'circle-color':['case',
         ['>', ['/', ['coalesce',['get','flagged'],0],
                ['max',['get','point_count'],1]], 0.34],
-        '#5A2A2E',
-        '#16302A'],
+        '#B23A2E',
+        '#1E7A54'],
       'circle-radius':15,'circle-opacity':0.85,
-      'circle-stroke-width':1,'circle-stroke-color':'rgba(233,239,246,.35)',
+      'circle-stroke-width':1,'circle-stroke-color':'rgba(255,255,255,.7)',
     },
   });
   map.addLayer({
@@ -735,7 +739,7 @@ function pushGeo({points, hull}){
       'text-field':['get','point_count_abbreviated'],
       'text-font':['Noto Sans Regular'],'text-size':11,
     },
-    paint:{'text-color':'#E9EFF6'},
+    paint:{'text-color':'#FFFFFF'},
   });
   map.addLayer({
     id:'occ-pt-stroke', type:'circle', source:'occ',
@@ -800,7 +804,7 @@ async function run(){
     const d=await r.json();
     window.__bundle=d;
     render(d);
-    status.textContent='Analysis complete — '
+    status.textContent='Analysis complete: '
       + d.scores.records_analysed.toLocaleString()+' records, '
       + new Date(d.generated_utc).toLocaleTimeString();
   }catch(e){
@@ -831,7 +835,7 @@ function sparkline(counts){
     +'<line class="axis" x1="0" x2="'+W+'" y1="'+(H-P)+'" y2="'+(H-P)+'"/>'
     +'<path d="'+d+'"/>'
     +'</svg>'
-    +'<div class="note mono">'+y0+' — '+y1+' · peak '
+    +'<div class="note mono">'+y0+' to '+y1+' · peak '
     +nMax+' in '+ys[ns.indexOf(nMax)]+'</div>';
 }
 
@@ -851,7 +855,7 @@ function render(d){
   document.getElementById('m-healthbar').style.width=Math.min(s.health_pct,100)+'%';
   const fit=d.sdm_readiness;
   const sv=document.getElementById('m-sdm');
-  sv.textContent=fit? fit.ready_records.toLocaleString() : '—';
+  sv.textContent=fit? fit.ready_records.toLocaleString() : 'n/a';
   sv.className='v '+ (fit&&fit.verdict==='READY'?'good':(fit&&fit.verdict==='CONDITIONAL'?'fair':'poor'));
   document.getElementById('m-sdmnote').textContent= fit?
     `${fit.retention_pct}% retention · ${fit.verdict}` : '';
@@ -883,7 +887,7 @@ function render(d){
   document.getElementById('benchmark').innerHTML = bm.length? bm.map(b=>`
     <div style="display:flex;justify-content:space-between;gap:12px;padding:4px 0;border-bottom:1px solid var(--line)">
       <span>${b.label}</span>
-      <span class="mono" style="text-align:right">${b.sample_pct}% vs ${b.population_pct}% (Δ${b.delta>0?'+':''}${b.delta} pp) — ${b.verdict}</span>
+      <span class="mono" style="text-align:right">${b.sample_pct}% vs ${b.population_pct}% (Δ${b.delta>0?'+':''}${b.delta} pp): ${b.verdict}</span>
     </div>`).join('')
     : 'Baseline unavailable for this query.';
 
@@ -897,14 +901,14 @@ function render(d){
   const coo=d.cooccurrence;
   let html='';
   if(inter.by_type && inter.by_type.length){
-    html += '<div class="note" style="margin-bottom:6px"><b>GloBI interactions</b> — '
+    html += '<div class="note" style="margin-bottom:6px"><b>GloBI interactions</b>: '
       + inter.by_type.slice(0,6).map(t=>`${t.label}: ${t.count}`).join(' · ')
       + ` (n=${inter.total})</div>`;
   }else{
     html += '<div class="note">No GloBI interaction records.</div>';
   }
   if(coo && coo.partners && coo.partners.length){
-    html += `<div class="note"><b>Congeneric co-occurrence</b> (Jaccard, 1° grid) — genus <i>${coo.genus}</i> (${coo.assemblage_size} species):</div>
+    html += `<div class="note"><b>Congeneric co-occurrence</b> (Jaccard, 1° grid), genus <i>${coo.genus}</i> (${coo.assemblage_size} species):</div>
       <table><colgroup/><tr><th>Congener</th><th style="text-align:right">Overlap</th></tr>`
       + coo.partners.slice(0,6).map(p=>`
         <tr><td style="font-style:italic">${p.species}</td>
@@ -1089,7 +1093,7 @@ async function byodExport(mode){
     }
     const j=await r.json();
     download(j.filename,'text/csv', j.csv);
-    st.textContent='Export ready — '+j.filename;
+    st.textContent='Export ready: '+j.filename;
   }catch(e){
     st.className='status err'; st.textContent='Export failed: '+e.message;
   }
@@ -1126,7 +1130,7 @@ async function inspectFile(){
       +' columns · '+j.core_present.length+' core fields detected.'
       +(j.needs_mapping
         ?' Review the mapping below.'
-        :' Mapping looks good — ready to run.');
+        :' Mapping looks good. Ready to run.');
   }catch(e){
     st.className='status err'; st.textContent='Inspect failed: '+e.message;
   }finally{
@@ -1155,9 +1159,9 @@ function renderMapping(insp){
       +(core?' <span class="chip bad">core</span>':'')
       +'</td>'
       +'<td><select data-canon="'+esc(canon)+'">'
-      +'<option value="">— not mapped —</option>'
+      +'<option value="">Not mapped</option>'
       +ropt+'</select></td>'
-      +'<td class="mono" style="font-size:9.5px">—</td></tr>';
+      +'<td class="mono" style="font-size:9.5px">n/a</td></tr>';
   }
   tbl.innerHTML=rows;
   tbl.querySelectorAll('select').forEach(sel=>{
@@ -1196,7 +1200,7 @@ function fillPreview(insp){
       cell.textContent=stats[src].filled_pct+'% · '
         +stats[src].distinct+' distinct';
     }else if(cell){
-      cell.textContent='—';
+      cell.textContent='n/a';
     }
   });
   const pv=document.getElementById('preview');
@@ -1245,7 +1249,7 @@ async function runByod(){
     window.__bundle=d;
     renderByod(d);
     const p=d.profile||{};
-    st.textContent='Analysis complete — '+d.rows.toLocaleString()+' rows · '
+    st.textContent='Analysis complete: '+d.rows.toLocaleString()+' rows · '
       +(p.records_kept!=null?p.records_kept.toLocaleString()+' kept by '
         +(p.profile||'General')+' profile · ':'')
       +new Date(d.generated_utc||Date.now()).toLocaleTimeString();
@@ -1279,13 +1283,13 @@ function renderByod(d){
   fv.textContent=(s.records_analysed-s.records_clean).toLocaleString();
   const p=d.profile||{};
   const kv=document.getElementById('m-keep');
-  kv.textContent=(p.retention_pct!=null?p.retention_pct+'%':'—');
+  kv.textContent=(p.retention_pct!=null?p.retention_pct+'%':'n/a');
   kv.className='v '+pctClass(p.retention_pct!=null?p.retention_pct:0);
   document.getElementById('m-keepnote').textContent=
     (p.records_kept!=null? p.records_kept.toLocaleString()+' rows kept':'');
   const fit=d.sdm_readiness;
   const sv=document.getElementById('m-sdm');
-  sv.textContent=fit? fit.ready_records.toLocaleString() : '—';
+  sv.textContent=fit? fit.ready_records.toLocaleString() : 'n/a';
   sv.className='v '+ (fit&&fit.verdict==='READY'?'good':
     (fit&&fit.verdict==='CONDITIONAL'?'fair':'poor'));
   document.getElementById('m-sdmnote').textContent= fit?
@@ -1293,7 +1297,7 @@ function renderByod(d){
 
   const pb=document.getElementById('profbox');
   if(p.profile){
-    pb.innerHTML='<b>'+esc(p.profile)+'</b> profile — kept <b>'
+    pb.innerHTML='<b>'+esc(p.profile)+'</b> profile, kept <b>'
       +Number(p.records_kept).toLocaleString()+'</b> of '
       +Number(p.records_kept+p.records_excluded).toLocaleString()
       +' rows ('+p.retention_pct+'% retention). '+esc(p.note||'');
@@ -1357,7 +1361,7 @@ function renderByod(d){
   if(o){
     oEl.innerHTML='<div class="note">'+o.flagged+' spatial outlier'
       +(o.flagged===1?'':'s')+' ('+o.percent
-      +'%) — DBSCAN (eps 0.5, min 5) on scaled coordinates; '
+      +'%). DBSCAN (eps 0.5, min 5) on scaled coordinates; '
       +'candidates for manual review before mapping or modelling.</div>';
     oEl.style.display='block';
     setCount('cnt-outliers', o.flagged+' found');
@@ -1379,7 +1383,7 @@ function renderByod(d){
             +(r.status?' <span class="chip">'+esc(r.status)+'</span>':''))
           :'<span class="chip bad">no match</span>')
         +'</td><td class="num">'
-        +(r.confidence!=null?r.confidence:'—')+'</td></tr>').join('')
+        +(r.confidence!=null?r.confidence:'n/a')+'</td></tr>').join('')
       + '</table><div class="note">'+exact+' exact, '
       +(nv.checked-exact-none)+' fuzzy, '+none+' unmatched of '
       +nv.checked+' unique names (max 200; GBIF backbone).</div>';
@@ -1393,10 +1397,10 @@ function renderByod(d){
     flEl.innerHTML='<table><colgroup/><tr><th>Row</th><th>Species</th>'
       +'<th>Coordinates</th><th>Reasons</th></tr>'
       + fl.map(r=>'<tr><td class="mono">'+r.row+'</td>'
-        +'<td style="font-style:italic">'+esc(r.species||'—')+'</td>'
+        +'<td style="font-style:italic">'+esc(r.species||'n/a')+'</td>'
         +'<td class="mono" style="font-size:10px">'
         +esc(r.decimalLatitude!=null
-          ?(r.decimalLatitude+', '+r.decimalLongitude):'—')+'</td>'
+          ?(r.decimalLatitude+', '+r.decimalLongitude):'n/a')+'</td>'
         +'<td>'+(r.reasons||[]).map(x=>
           '<span class="chip bad">'+esc(prettyFlag(x))+'</span>')
           .join('')+'</td></tr>').join('')
@@ -1410,7 +1414,7 @@ function renderByod(d){
   if(rc.length){
     rcEl.innerHTML=rc.map(r=>
       '<div class="note" style="margin-bottom:8px"><b>'+esc(r.title)
-      +'</b> — '+esc(r.message)+'</div>').join('');
+      +'</b>: '+esc(r.message)+'</div>').join('');
     rcEl.style.display='block';
     setCount('cnt-recs', rc.length+' actions');
   }

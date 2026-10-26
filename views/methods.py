@@ -1,5 +1,5 @@
 """
-BioSift — Methods & Standards page
+BioSift: Methods & Standards page
 """
 
 import pandas as pd
@@ -12,7 +12,7 @@ from utils.bdq import BDQ, ORDER, citation_note
 
 INTERACTIONS_ROWS = [
     ("Data source",
-     "GloBI — Global Biotic Interactions (Poelen et al. 2014, Ecological "
+     "GloBI, Global Biotic Interactions (Poelen et al. 2014, Ecological "
      "Informatics)",
      "Interaction records are queried via GloBI's directional taxon "
      "parameters (sourceTaxon=, targetTaxon=), which return resolved, "
@@ -39,7 +39,7 @@ FITNESS_ROWS = [
     ("Standard profile",
      "Coordinate uncertainty ≤ 10 km",
      "Mirrors the moderate settings of Zizka et al. 2020's automated "
-     "cleaning pipeline — suitable for exploratory distribution work."),
+     "cleaning pipeline, suitable for exploratory distribution work."),
     ("Strict profile",
      "Coordinate uncertainty ≤ 1 km",
      "Publication-grade end of the same sensitivity analysis; required "
@@ -47,7 +47,7 @@ FITNESS_ROWS = [
     ("Uncertainty gate",
      "Marcer et al. 2022",
      "Records with unknown coordinateUncertaintyInMeters are flagged "
-     "rather than silently passed — uncertainty is the dominant error "
+     "rather than silently passed. Uncertainty is the dominant error "
      "axis for SDM fitness."),
     ("Minimum sample gate",
      "≥ 100 usable records",
@@ -70,7 +70,7 @@ CHECKS_ROWS = [
     ("Pre-1900 records",
      "VALIDATION_YEAR_INRANGE (custom lower bound 1900)",
      "Historical records are valid but often carry imprecise georeferences "
-     "and historical place names — review before fine-scale use."),
+     "and historical place names, so review before fine-scale use."),
     ("Missing event date",
      "VALIDATION_EVENTDATE_NOTEMPTY · VALIDATION_EVENTDATE_INRANGE",
      "Checks that dwc:eventDate is populated and consistent with dwc:year."),
@@ -85,7 +85,7 @@ CHECKS_ROWS = [
     ("Country–coordinate mismatch",
      "VALIDATION_COUNTRYCODE_STANDARD · VALIDATION_COUNTRY_COORDINATESMISMATCH",
      "Coordinates tested against the stated country's bounding box with a "
-     "1° tolerance buffer — mismatches indicate georeferencing errors."),
+     "1° tolerance buffer. Mismatches indicate georeferencing errors."),
     ("GBIF issue flags",
      "GBIF interpretation flags (informational)",
      "GBIF's own interpretation pipeline flags; informational and not "
@@ -110,10 +110,12 @@ def render():
         ("Benchmark", "Defect rates vs full GBIF population"),
         ("Package", "Reproducibility Pack, PDF, DwC-A, cube SQL"),
     ]
+    # Pipeline steps are ink, not accent: the accent marks the one
+    # focal moment per screen, and a five-card row is not it.
     for col, (name, desc) in zip(steps, pipeline):
         col.markdown(
             f'<div class="card" style="min-height:130px">'
-            f'<div class="card-t" style="color:{C["accent"]}">{name}</div>'
+            f'<div class="card-t">{name}</div>'
             f'<div class="card-d">{desc}</div></div>',
             unsafe_allow_html=True,
         )
@@ -125,7 +127,7 @@ def render():
         <div class="card-d">
         The <b>Data Health Score</b> is the percentage of sampled records that
         pass <b>all</b> quality checks (any single flag disqualifies a record).
-        It is deliberately strict — think of it as an upper bound on the
+        It is deliberately strict. Think of it as an upper bound on the
         share of records ready for demanding analyses. Complementary metrics
         (completeness, per-record reliability, benchmark deltas) contextualise
         the headline number so a single score never stands alone.
@@ -134,7 +136,7 @@ def render():
     """, unsafe_allow_html=True)
 
     # ── BDQ mapping table ─────────────────────────────────
-    T.section("Check → TDWG BDQ test mapping")
+    T.section("Check to TDWG BDQ test mapping")
     st.caption(citation_note())
     rows = [{"BioSift check": c, "TDWG BDQ test(s)": b, "What it means": d}
             for c, b, d in CHECKS_ROWS]
@@ -158,15 +160,15 @@ def render():
     # ── distribution & KBA methodology ────────────────────
     T.section("Distribution metrics & KBA screening")
     st.dataframe(pd.DataFrame([
-        {"Metric": "EOO — Extent of Occurrence",
+        {"Metric": "EOO (Extent of Occurrence)",
          "Method": "Minimum convex hull in local equirectangular "
                    "projection, per IUCN Guidelines 4.0",
-         "Caution": "Highly sensitive to outlier/vagrant records — the "
+         "Caution": "Highly sensitive to outlier/vagrant records. The "
                     "hull can overstate range (Burgio et al. 2021). "
                     "BioSift warns when hull area is implausible."},
-        {"Metric": "AOO — Area of Occupancy",
+        {"Metric": "AOO (Area of Occupancy)",
          "Method": "2×2 km occupancy grid, IUCN Standard 4.0",
-         "Caution": "Sample-size dependent: more records → more occupied "
+         "Caution": "Sample-size dependent: more records means more occupied "
                     "cells, so compare only at comparable sampling."},
         {"Metric": "KBA Criterion B screen",
          "Method": "B1: EOO ≤ 20,000 km² · B2: AOO ≤ 2,000 km² "
@@ -177,7 +179,7 @@ def render():
          "Method": "1° presence/absence grid Jaccard index between the "
                    "target and congeneric species (GBIF data)",
          "Caution": "Observed overlap conflates ecology with sampling "
-                    "effort — read alongside the gap analysis."},
+                    "effort, so read alongside the gap analysis."},
     ]), use_container_width=True, hide_index=True)
     for cite in (
         "Zizka, A. et al. (2020). No one-size-fits-all solution to clean "
@@ -236,7 +238,7 @@ def render():
         versioned schema (<code>biosift.report/1.0</code>) for machine
         ingestion; and all BioSift code is open source. Re-running the recipe
         against GBIF regenerates the identical input, and the checks are
-        deterministic — same data in, same verdict out.
+        deterministic: same data in, same verdict out.
         </div>
     </div>
     """, unsafe_allow_html=True)

@@ -2,6 +2,8 @@ import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 
+from utils.theme import C, D
+
 
 def _count_decimals(val):
     """Float-noise safe decimal counter — local copy."""
@@ -126,9 +128,9 @@ def get_dataset_quality_breakdown(df, flags):
         )
 
         colors = [
-            "#3FB950" if h >= 80
-            else "#E3B341" if h >= 50
-            else "#F85149"
+            D["rich"] if h >= 80
+            else D["mid"] if h >= 50
+            else D["poor"]
             for h in chart_df["_health_val"]
         ]
 
@@ -146,7 +148,7 @@ def get_dataset_quality_breakdown(df, flags):
                 )
             ],
             textposition="outside",
-            textfont=dict(color="#8B949E", size=11),
+            textfont=dict(color=C["text_dim"], size=11),
             hovertemplate=(
                 "<b>%{y}</b><br>"
                 "Health: %{x:.1f}%<extra></extra>"
@@ -156,11 +158,11 @@ def get_dataset_quality_breakdown(df, flags):
         fig.update_layout(
             title="Dataset Health Scores (top 15 by record count)",
             xaxis_title="Health Score (%)",
-            xaxis=dict(range=[0, 115], gridcolor="#21262D"),
+            xaxis=dict(range=[0, 115], gridcolor=C["line"]),
             yaxis_title=None,
-            plot_bgcolor="#161B22",
-            paper_bgcolor="#161B22",
-            font_color="#F0F6FC",
+            plot_bgcolor="rgba(0,0,0,0)",
+            paper_bgcolor="rgba(0,0,0,0)",
+            font_color=C["text_dim"],
             margin=dict(l=10, r=120, t=50, b=40),
             height=max(350, len(chart_df) * 30 + 80)
         )

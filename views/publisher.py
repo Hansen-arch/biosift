@@ -1,5 +1,5 @@
 """
-BioSift — Publisher Report Card page
+BioSift: Publisher Report Card page
 """
 
 import streamlit as st
@@ -13,7 +13,7 @@ def render():
     T.page_head(
         "Publisher Report Card",
         "Assess the data quality and coverage of any GBIF publishing "
-        "institution — the same feedback loop the community uses to improve "
+        "institution: the same feedback loop the community uses to improve "
         "data at the source."
     )
 
@@ -31,7 +31,7 @@ def render():
                 if error:
                     st.error(error)
                 elif not publishers:
-                    st.error("No publisher found — try a different name.")
+                    st.error("No publisher found. Try a different name.")
                 else:
                     st.session_state["publishers"] = publishers
                     st.session_state["pub_input"] = publisher_input

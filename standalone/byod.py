@@ -408,7 +408,7 @@ PROFILES = {
             "low_precision", "old_record", "missing_year", "missing_date",
             "dataset_rounded", "coordinate_hotspot", "capital_flag",
         ],
-        "note": "General mapping and listing use — hard spatial and "
+        "note": "General mapping and listing use: hard spatial and "
                 "taxonomic errors excluded, precision advisories kept.",
     },
     "SDM (Zizka et al. 2020)": {
@@ -420,7 +420,7 @@ PROFILES = {
             "coordinate_hotspot",
         ],
         "advisory": ["missing_date", "ddmm_suspect"],
-        "note": "Species-distribution modelling filter — mirrors the "
+        "note": "Species-distribution modelling filter, mirrors the "
                 "cleaning workflow of Zizka et al. 2020 (EcoEvoRxiv) "
                 "and the ALA CSDM profile.",
     },

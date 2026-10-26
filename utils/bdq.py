@@ -28,7 +28,7 @@ BDQ = {
         "bdq": "VALIDATION_YEAR_INRANGE (custom lower bound: 1900)",
         "name": "Year in range",
         "desc": "Pre-1900 records are valid but often use historical place names "
-                "and imprecise georeference — review before use.",
+                "and imprecise georeference, so review before use.",
     },
     "missing_date": {
         "bdq": "VALIDATION_EVENTDATE_NOTEMPTY · VALIDATION_EVENTDATE_INRANGE",
@@ -51,13 +51,13 @@ BDQ = {
         "bdq": "VALIDATION_COUNTRYCODE_STANDARD · VALIDATION_COUNTRY_COORDINATESMISMATCH",
         "name": "Coordinates within stated country",
         "desc": "Coordinates checked against the stated country bounding box "
-                "(1° tolerance) — mismatches indicate georeferencing errors.",
+                "(1° tolerance). Mismatches indicate georeferencing errors.",
     },
     "has_issues": {
         "bdq": "GBIF interpretation flags (informational)",
         "name": "GBIF issue flags",
         "desc": "GBIF's own interpretation pipeline flagged these records. "
-                "Informational — not all flags imply unusable data.",
+                "Informational: not all flags imply unusable data.",
     },
 }
 
@@ -72,18 +72,18 @@ def bdq_meta(key):
     """Return (bdq_id, friendly_name, description) for a check key."""
     meta = BDQ.get(key, {})
     return (
-        meta.get("bdq", "—"),
+        meta.get("bdq", "n/a"),
         meta.get("name", key.replace("_", " ").title()),
         meta.get("desc", ""),
     )
 
 
 def bdq_id(key):
-    return BDQ.get(key, {}).get("bdq", "—")
+    return BDQ.get(key, {}).get("bdq", "n/a")
 
 
 def citation_note():
     return (
         "Quality assertions follow the TDWG Biodiversity Data Quality (BDQ) "
-        "TG2 core test vocabulary — https://github.com/tdwg/bdq"
+        "TG2 core test vocabulary (https://github.com/tdwg/bdq)"
     )

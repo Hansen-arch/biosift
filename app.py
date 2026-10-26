@@ -1,5 +1,5 @@
 """
-BioSift — biodiversity data intelligence platform
+BioSift: biodiversity data intelligence platform
 Entry point. Pages live in views/ and are wired via st.navigation.
 """
 
