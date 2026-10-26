@@ -275,7 +275,7 @@ class Tab:
             pass
 
 
-BOOT = """
+BOOT = r"""
 window.clickByText = function(tag, text) {
   const els = [...document.querySelectorAll(tag)];
   const el = els.find(e => e.innerText.trim() === text)
@@ -363,14 +363,38 @@ window.audit = function() {
                      .toString().slice(0, 40),
                      right: Math.round(r.right)});
       }
-      if (cs.color && (cs.color === 'rgb(34, 34, 34)'
-          || cs.color === 'rgb(17, 17, 17)')) {
-        const bg = cs.backgroundColor;
-        if (bg === 'rgb(255, 255, 255)'
-            || bg === 'rgba(0, 0, 0, 0)') {
-          issues.push({type: 'dark-on-dark?',
-                       tag: el.tagName,
-                       txt: (el.innerText || '').slice(0, 30)});
+      // low-contrast text probe (R-25): luminance-based, theme-agnostic
+      const txt = (el.innerText || '').trim();
+      if (txt && el.children.length === 0 && cs.color) {
+        const lum = (c) => {
+          const m = c.match(/rgba?\((\d+), ?(\d+), ?(\d+)/);
+          if (!m) return null;
+          const f = [m[1], m[2], m[3]].map(v => {
+            v = Number(v) / 255;
+            return v <= 0.03928 ? v / 12.92
+                 : Math.pow((v + 0.055) / 1.055, 2.4);
+          });
+          return 0.2126 * f[0] + 0.7152 * f[1] + 0.0722 * f[2];
+        };
+        const effBg = (start) => {
+          let a = start;
+          while (a && a !== document.documentElement) {
+            const b = getComputedStyle(a).backgroundColor;
+            if (b && !/rgba\(0, 0, 0, 0\)|transparent/.test(b)) return b;
+            a = a.parentElement;
+          }
+          return 'rgb(255, 255, 255)';
+        };
+        const l1 = lum(cs.color), l2 = lum(effBg(el));
+        if (l1 !== null && l2 !== null) {
+          const ratio = (Math.max(l1, l2) + 0.05)
+                      / (Math.min(l1, l2) + 0.05);
+          if (ratio < 2.5) {
+            issues.push({type: 'low-contrast', ratio:
+                         Math.round(ratio * 100) / 100,
+                         tag: el.tagName,
+                         txt: txt.slice(0, 30)});
+          }
         }
       }
     }
@@ -475,14 +499,20 @@ def audit_analysis(tab):
                 .replace("__", "_"))
         tab.shot(f"{i:02d}_tab_{safe}")
 
-    # export affordances — check the visible panel + actual buttons
-    time.sleep(2)
-    panel = tab.active_tab_text(600)
+    # export affordances — pack/PDF/cube build slowly (reppack ZIP,
+    # reportlab PDF, GloBI fetch), so poll instead of sampling once
+    deadline = time.time() + 120
+    n = 0
+    while time.time() < deadline:
+        n = tab.count_download_buttons()
+        if n >= 5:
+            break
+        time.sleep(3)
+    panel = tab.active_tab_text(1200)
     print(" export panel mentions pack/pdf/cube:",
           "pack" in panel.lower(), "pdf" in panel.lower(),
           "cube" in panel.lower())
-    print(" download buttons rendered:",
-          tab.count_download_buttons())
+    print(" download buttons rendered:", n)
     tab.shot("15_exports")
 
 

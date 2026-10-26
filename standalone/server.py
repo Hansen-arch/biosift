@@ -242,7 +242,7 @@ def analysis(
             ] or None
         ),
         "interactions": {
-            "source": "GloBI — globalbioticinteractions.org",
+            "source": "GloBI (globalbioticinteractions.org)",
             "total": len(interactions),
             "by_type": i_by_type,
             "top_partners": i_partners[:15],

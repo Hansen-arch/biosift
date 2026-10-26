@@ -136,13 +136,13 @@ def build_reppack(
                 "citations": fitness.get("citations"),
             } if fitness else None,
             "interactions": {
-                "source": "GloBI — globalbioticinteractions.org",
+                "source": "GloBI (globalbioticinteractions.org)",
                 "count": len(interactions),
                 "records": interactions[:100],
             } if interactions is not None else None,
             "standards": {
                 "quality_tests": citation_note(),
-                "data_standard": "Darwin Core — https://dwc.tdwg.org",
+                "data_standard": "Darwin Core (https://dwc.tdwg.org)",
             },
         }
         report_json = json.dumps(report, indent=2)
@@ -167,8 +167,8 @@ def build_reppack(
                 "schema": "biosift.recipe/1.0",
                 "generated": iso,
                 "source": (
-                    "GBIF occurrence API — "
-                    "https://www.gbif.org/developer/summary"
+                    "GBIF occurrence API "
+                    "(https://www.gbif.org/developer/summary)"
                 ),
                 "note": (
                     "Run these requests to regenerate the exact sample "

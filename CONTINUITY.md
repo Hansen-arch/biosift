@@ -1,13 +1,13 @@
 # BioSift — Project Continuity
 
 > Living document. Update after every milestone so any future session can
-> resume with full context. **Current version: v3.3** (2026-09-27).
+> resume with full context. **Current version: v3.4** (2026-10-21).
 
 ---
 
 ## ⏯ START HERE — next session
 
-### What BioSift is now (v3.3, all verified working)
+### What BioSift is now (v3.4, all verified working)
 
 A biodiversity data-quality & distribution-intelligence platform over
 the public GBIF API — **and over the user's own data (BYOD)** — shipped
@@ -108,6 +108,53 @@ BIOSIFT_URL=http://localhost:8622 venv/bin/python scripts/ui_audit.py analysis
   `.hero .hero-title` specificity.
 
 ---
+
+## v3.4 — light scholarly UI overhaul, both apps (2026-10-21)
+
+Complete UI overhaul under the antislop filter
+(`github.com/miqdadbadjuber/anti-slop`, now vendored: `antislop.md` +
+`skills/` + pointer block in `AGENTS.md`). Direction chosen by the
+project owner: **light scholarly look**, transcribed into `DESIGN.md`.
+Everything verified live via CDP; screenshots in `/tmp/biosift_shots`.
+
+- **New identity**: warm paper `#F4F1E8` / card `#FBF9F2` / hairline
+  `#D6CFBC`, ink `#232019`, ONE accent deep emerald `#136F4E`, status
+  hues only for state (amber `#75530F`, red `#A2382B`, blue `#1D5FA8`).
+  Georgia serif display, system sans + tabular numerals, mono for
+  machine strings. Radius 4px (pill reserved for status badges), flat
+  surfaces (only the map popup floats), hover-only motion. Data colours
+  live in `utils/theme.D` (map/chart state encoding).
+- **`utils/theme.py` rewritten** (tokens + CSS + components + light
+  plotly theme `style_fig`); `.streamlit/config.toml` switched to
+  `base = "light"`; `utils/charts.py`, `utils/dataset_quality.py`,
+  `utils/maps.py`, `utils/gaps.py`, `utils/sdm.py`,
+  `utils/reliability.py` recoloured off the GitHub-dark palette onto
+  the new tokens. IUCN chips keep official IUCN colours (a standard's
+  data, not our palette).
+- **`standalone/frontend.py` re-skinned** to the same identity (CSS
+  variables, MapLibre cluster/popup/legend/select colours, data colours
+  `ACC/RED/AMBER` = `#1E7A54/#C2402F/#C9922B`); glass blur removed from
+  legend/speciesbar.
+- **Bugfix**: `views/analysis.py:_tab_map` used `fl.CircleMarker` with
+  no `import folium as fl`, so the DBSCAN map always died into the
+  `except` and showed "Map error". Now imported inside the tab.
+- **Copy fixes**: unbalanced parentheses in 4 alert/warning messages;
+  batch limit warning sentence joined without a period; section title
+  "Check → TDWG BDQ" arrow replaced; hero facts are now ledger items
+  (not pills) because they are provenance statements, not status.
+- **Audit tooling**: `scripts/ui_audit.py` dark-theme text heuristic
+  replaced with a real luminance contrast probe (flags any text under
+  2.5:1, theme-agnostic); the export check now polls up to 120 s for
+  the 5 download buttons (reppack ZIP + reportlab PDF + GloBI fetch are
+  slower than the old 2 s sample); `BOOT` string is now raw (killed a
+  SyntaxWarning).
+- **Verified**: `contrast-check.py` (antislop-human) passes 4.5:1 on
+  all 13 token pairs after darkening warn amber to `#75530F`; ui_audit
+  pages phase 5/5 pages clean (0 exceptions, 0 overflow, 0
+  low-contrast); analysis phase clean across all 10 tabs, exports show
+  pack/pdf/cube + 5 download buttons; standalone FULL audit ALL CHECKS
+  PASSED (2 GBIF species incl. map-colour verdict cross-check 55/55,
+  full BYOD flow with flagged-CSV round-trip, 4-viewport matrix).
 
 ## Project
 
@@ -222,8 +269,9 @@ standalone/
 Dockerfile            python:3.12-slim, uvicorn 0.0.0.0:8080, 2 workers
 docker-compose.yml    healthcheck (CMD-SHELL /api/health), restart policy
 utils/
-  theme.py            design system: C tokens, CSS, metric_card, alert,
-                      score_hero, style_fig (ink/emerald, Fraunces+Inter)
+  theme.py            design system: C/D tokens, CSS, metric_card, alert,
+                      score_hero, style_fig (paper/ink light scholarly,
+                      Georgia + system sans; see DESIGN.md v3.4)
   icons.py            inline SVG line icons (icon('dna', 20)) — NO emoji
   bdq.py              10 checks → official TDWG BDQ test IDs
   quality.py          the checks + completeness + multimedia stats
@@ -249,8 +297,10 @@ scripts/ui_audit.py   raw-CDP audit driver (pages|analysis phases;
 CONTINUITY.md         this file
 ```
 
-Design language: ink `#0B0F14` bg, emerald `#22C58B` accent, Fraunces
-display serif + Inter, radius-16 cards, hairline `#1F2A38` borders.
+Design language (v3.4): warm paper `#F4F1E8` bg, ink `#232019`, one
+accent deep emerald `#136F4E`, Georgia display serif + system sans,
+radius-4 flat cards, hairline `#D6CFBC` borders. Full direction and
+reasons in `DESIGN.md`.
 **No emoji anywhere** — user explicitly rejected emoji styling as
 "AI-generated looking". `utils/icons.py` provides inline SVG line icons
 (icon('dna', 20)); st.Page icons use `:material/*:` names; nav uses a

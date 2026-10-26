@@ -63,14 +63,15 @@ def compute_reliability_score(df):
 
 
 def get_reliability_label(score):
+    from utils.theme import C
     if score >= 80:
-        return "High",   "#3FB950"
+        return "High",   C["accent"]
     elif score >= 60:
-        return "Medium", "#E3B341"
+        return "Medium", C["amber"]
     elif score >= 40:
-        return "Low",    "#F0883E"
+        return "Low",    C["orange"]
     else:
-        return "Poor",   "#F85149"
+        return "Poor",   C["red"]
 
 
 def get_data_fitness(score, summary, temporal_stats):

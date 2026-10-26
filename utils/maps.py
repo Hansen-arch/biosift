@@ -5,8 +5,10 @@ from folium.plugins import HeatMap
 from utils.basemaps import basemap, add_layer_control
 
 # palette
-CLEAN = "#22C58B"
-FLAGGED = "#F2555A"
+from utils.theme import D
+
+CLEAN = D["clean"]
+FLAGGED = D["flag"]
 
 
 def build_map(df, flags, map_type="points", basemap_name=None):

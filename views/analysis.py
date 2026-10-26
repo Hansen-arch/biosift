@@ -1,5 +1,5 @@
 """
-BioSift — Species Analysis page
+BioSift: Species Analysis page
 """
 
 import streamlit as st
@@ -85,12 +85,12 @@ def render():
     T.inject_css()
     T.page_head(
         "Species Analysis",
-        "Live quality audit of any GBIF species — standards-aligned, "
+        "Live quality audit of any GBIF species: standards-aligned, "
         "benchmarked, export-ready."
     )
 
     # ── inputs ─────────────────────────────────────────────
-    sample_options = ["— select a sample —"] + list(SAMPLE_SPECIES.values())
+    sample_options = ["Select a sample..."] + list(SAMPLE_SPECIES.values())
     sample_choice = st.selectbox("Sample species", sample_options)
 
     species_raw = st.text_input(
@@ -102,11 +102,11 @@ def render():
         species_input, was_fixed = fix_species_name(species_input)
         if was_fixed:
             st.warning(
-                f"Auto-corrected to **{species_input}** — genus capitalised, "
-                f"species epithet lowercase."
+                f"Auto-corrected to **{species_input}** (genus capitalised, "
+                f"species epithet lowercase)."
             )
 
-    if sample_choice != "— select a sample —" and not species_raw.strip():
+    if sample_choice != "Select a sample..." and not species_raw.strip():
         species_input = sample_choice
         st.caption(f"Using sample: *{species_input}*")
 
@@ -283,7 +283,7 @@ def _render_results():
             )
         st.markdown(f"""
         <div style="display:flex;align-items:center;gap:0.7rem;flex-wrap:wrap">
-            <span style="font-family:'Fraunces',Georgia,serif;font-size:1.5rem;
+            <span style="font-family:Georgia,'Times New Roman',serif;font-size:1.5rem;
                          font-weight:700;color:{C['text']}">{name_html}</span>
             {iucn_html}
         </div>
@@ -292,12 +292,12 @@ def _render_results():
 
         if species_info:
             tax = [
-                ("Kingdom", species_info.get("kingdom", "—")),
-                ("Phylum", species_info.get("phylum", "—")),
-                ("Class", species_info.get("class_", "—")),
-                ("Order", species_info.get("order", "—")),
-                ("Family", species_info.get("family", "—")),
-                ("Genus", species_info.get("genus", "—")),
+                ("Kingdom", species_info.get("kingdom", "n/a")),
+                ("Phylum", species_info.get("phylum", "n/a")),
+                ("Class", species_info.get("class_", "n/a")),
+                ("Order", species_info.get("order", "n/a")),
+                ("Family", species_info.get("family", "n/a")),
+                ("Genus", species_info.get("genus", "n/a")),
             ]
             tcols = st.columns(6)
             for i, (rank, val) in enumerate(tax):
@@ -321,7 +321,7 @@ def _render_results():
         filter_parts.append(f"Basis: {basis_used}")
     if filter_parts:
         st.info(
-            f"Active filters — {' · '.join(filter_parts)}. "
+            f"Active filters: {' · '.join(filter_parts)}. "
             f"All statistics reflect the filtered sample only."
         )
 
@@ -336,7 +336,7 @@ def _render_results():
                 col=m[2])
     metric_card("Mean reliability", (
         f"{round(float(reliability.mean()), 1)}/100"
-        if reliability is not None else "—"
+        if reliability is not None else "n/a"
     ), "per-record evidence score", col=m[3])
 
     st.divider()
@@ -386,17 +386,17 @@ def _render_results():
                 "success", "SDM-ready dataset",
                 f"{fit['ready_records']:,} of {len(df):,} records "
                 f"({fit['retention_pct']}%) pass all filters under the "
-                f"Standard profile — full gate breakdown in the "
+                f"Standard profile. Full gate breakdown in the "
                 f"SDM Readiness tab."),
             "CONDITIONAL": (
                 "warn", "Conditionally SDM-ready",
                 f"{fit['ready_records']:,} records survive all filters "
                 f"({fit['retention_pct']}% retention) but sample size or "
-                f"distribution warrants caution — see SDM Readiness."),
+                f"distribution warrants caution. See SDM Readiness."),
             "NOT READY": (
                 "error", "Not SDM-ready at Standard strictness",
                 f"Only {fit['ready_records']:,} of {len(df):,} records "
-                f"survive the Standard profile — see the SDM Readiness "
+                f"survive the Standard profile. See the SDM Readiness "
                 f"tab for the failing gates."),
         }[fit["verdict"]]
         T.alert(kind, title, msg)
@@ -461,7 +461,7 @@ def _tab_overview(df, flags, summary, score, completeness, multimedia,
                 f"{completeness['low_count']:,} below 50%"
             )
 
-        T.section("Quality checks — TDWG BDQ aligned")
+        T.section("Quality checks, TDWG BDQ aligned")
         rows = []
         for k in summary:
             if k in ("any_flag", "has_issues"):
@@ -488,7 +488,7 @@ def _tab_overview(df, flags, summary, score, completeness, multimedia,
                 "info",
                 "GBIF internal flags",
                 f"{summary['has_issues']['count']} records carry GBIF's own "
-                f"interpretation flags — informational, not all imply "
+                f"interpretation flags: informational, not all imply "
                 f"unusable data.",
             )
 
@@ -572,7 +572,7 @@ def _tab_overview(df, flags, summary, score, completeness, multimedia,
     if ds_df is not None:
         st.dataframe(ds_df, use_container_width=True, hide_index=True)
     else:
-        st.info("Dataset breakdown unavailable — datasetName missing.")
+        st.info("Dataset breakdown unavailable (datasetName missing).")
 
 
 def _tab_community(species, genus_df, target_df):
@@ -580,8 +580,7 @@ def _tab_community(species, genus_df, target_df):
     co-occurrence."""
     st.caption(
         "Two complementary views of ecological relationships: documented "
-        "interactions (GloBI, Poelen et al. 2014) and observed geographic "
-        "co-occurrence with congeners (GBIF, 1° grid Jaccard overlap — "
+        "interactions (GloBI, Poelen et al. 2014) and observed geographic "            "co-occurrence with congeners (GBIF, 1° grid Jaccard overlap; "
         "Jaccard 1901; Real & Vargas 1996)."
     )
 
@@ -612,7 +611,7 @@ def _tab_community(species, genus_df, target_df):
                     pd.DataFrame([{
                         "Relationship": r["label"],
                         "Partner": r["other"],
-                        "Source": r["citation"] or r["source"] or "—",
+                        "Source": r["citation"] or r["source"] or "n/a",
                     } for r in interactions]),
                     use_container_width=True, hide_index=True,
                 )
@@ -652,7 +651,7 @@ def _tab_kba(df, species_info):
     st.caption(
         "Extent of Occurrence and Area of Occupancy computed per IUCN "
         "guidance, screened against KBA Standard (IUCN 2016) Criterion B. "
-        "Screening only — see caveats."
+        "Screening only, see caveats."
     )
     iucn = (species_info or {}).get("iucn", "")
     metrics = run_distribution_metrics(df, iucn_category=iucn)
@@ -712,7 +711,7 @@ def _tab_carbon(df, species, species_info):
     """Scenario carbon standing-stock estimate for plants."""
     st.caption(
         "Indicated carbon potential of the woody biomass these records "
-        "represent - Chave et al. 2014 pantropical allometry with IPCC "
+        "represent: Chave et al. 2014 pantropical allometry with IPCC "
         "2006 conversion factors. A scenario, not an inventory."
     )
     kingdom = (species_info or {}).get("kingdom", "")
@@ -784,7 +783,7 @@ def _tab_fitness(df, flags):
     """SDM readiness audit with cited, tiered filters."""
     st.caption(
         "Filters follow Zizka et al. 2020 (Ecography) and Marcer et al. "
-        "2022 (Ecography) — with the strictness profile made explicit, "
+        "2022 (Ecography), with the strictness profile made explicit, "
         "because 'clean data' means different things in different "
         "pipelines."
     )
@@ -844,20 +843,21 @@ def _tab_fitness(df, flags):
         )
     st.caption(
         "BioSift extends the literature by making filter strictness an "
-        "explicit, disclosed parameter — Standard mirrors Zizka et al.'s "
+        "explicit, disclosed parameter: Standard mirrors Zizka et al.'s "
         "moderate settings; Strict reflects the publication-grade end of "
         "their sensitivity analysis."
     )
 
 
 def _tab_map(df, flags, outliers, map_type, basemap_name=None):
+    import folium as fl
     from streamlit_folium import st_folium
     from utils.basemaps import add_layer_control
 
     map_type = st.session_state.get("map_type", "Point Map")
     T.section("Occurrence map")
     st.caption(
-        f"Mode: **{map_type}** — switch basemap via the layers control "
+        f"Mode: **{map_type}**. Switch basemap via the layers control "
         f"in the map's top-right corner."
     )
 
@@ -865,7 +865,8 @@ def _tab_map(df, flags, outliers, map_type, basemap_name=None):
         if map_type == "Point Map":
             st.markdown(
                 f'<span class="legend-dot dot-green"></span> Clean &nbsp;&nbsp;'
-                f'<span class="legend-dot dot-red"></span> Flagged',
+                f'<span class="legend-dot dot-red"></span> Flagged &nbsp;&nbsp;'
+                f'<span class="legend-dot dot-orange"></span> Spatial outlier',
                 unsafe_allow_html=True,
             )
             m = build_map(df, flags, map_type="points",
@@ -889,7 +890,7 @@ def _tab_map(df, flags, outliers, map_type, basemap_name=None):
                         continue
                     is_out = (outliers.loc[idx]
                               if outliers is not None else False)
-                    colour = "#F08A3E" if is_out else "#22C58B"
+                    colour = T.D["sparse"] if is_out else T.D["clean"]
                     fl.CircleMarker(
                         location=[lat, lon], radius=4, color=colour,
                         fill=True, fill_color=colour, fill_opacity=0.7,
@@ -908,7 +909,7 @@ def _tab_map(df, flags, outliers, map_type, basemap_name=None):
                 )
         elif map_type == "SDM Preview":
             st.info(
-                "Kernel Density Estimation of habitat suitability — "
+                "Kernel Density Estimation of habitat suitability: "
                 "exploratory only, not a full correlative SDM."
             )
             sdm_map, sdm_err = build_sdm_map(
@@ -928,7 +929,7 @@ def _tab_temporal(df, yr_from, yr_to):
     temporal_stats = get_temporal_stats(df)
 
     if not temporal_stats:
-        st.info("Not enough temporal data — try widening the year range.")
+        st.info("Not enough temporal data. Try widening the year range.")
         return
 
     boxes = [
@@ -1004,7 +1005,7 @@ def _tab_gaps(df, basemap_name=None):
     st.info(
         "The world is divided into 10° grid cells. **Coloured cells** have "
         "records for this species; **dark cells** have none. Most of the "
-        "globe will be dark for any species — that's ecology, not missing "
+        "globe will be dark for any species. That's ecology, not missing "
         "data."
     )
     st.caption(
@@ -1040,7 +1041,7 @@ def _tab_export(df, clean_df, flags, summary, score, species, reliability,
                 total, pop_stats):
     T.section("Publication-grade exports")
     st.caption(
-        "Everything a reviewer, repository or indicator pipeline needs — "
+        "Everything a reviewer, repository or indicator pipeline needs, "
         "generated from this exact analysis run."
     )
 
@@ -1120,7 +1121,7 @@ def _tab_export(df, clean_df, flags, summary, score, species, reliability,
         st.code(payload, language="json")
         st.markdown(
             f"[Open the GBIF SQL download form]("
-            f"https://www.gbif.org/download/sql) — paste the query, "
+            f"https://www.gbif.org/download/sql). Paste the query, "
             f"receive a citable DOI-backed download."
         )
 

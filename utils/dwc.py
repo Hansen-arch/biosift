@@ -121,8 +121,7 @@ def build_dwca(df, species, score, clean_only=False):
          scope="system"
          xml:lang="eng">
   <dataset>
-    <title>{label} occurrence dataset for {species}
-    — exported from BioSift</title>
+    <title>{label} occurrence dataset for {species}, exported from BioSift</title>
     <creator>
       <organizationName>BioSift</organizationName>
       <onlineUrl>
