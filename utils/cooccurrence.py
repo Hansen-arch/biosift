@@ -13,12 +13,15 @@ distinguish allopatric relatives. This is *observed* community structure
 from GBIF itself — not inferred network guesses.
 """
 
+from concurrent.futures import ThreadPoolExecutor, wait
+
 import requests
 import streamlit as st
 import pandas as pd
 import numpy as np
 
 GBIF = "https://api.gbif.org/v1/occurrence/search"
+SPECIES_MATCH = "https://api.gbif.org/v1/species/match"
 
 
 @st.cache_data(ttl=86400, show_spinner=False)
@@ -106,31 +109,63 @@ def jaccard(a, b):
 
 
 @st.cache_data(ttl=86400, show_spinner=False)
-def fetch_species_grids(species_list, limit=300):
+def fetch_species_grids(species_list, limit=200, budget=28):
+    """Coordinate samples per species, as grid-cell sets.
+
+    Two measured facts drive this implementation:
+      * a name-based occurrence query (`scientificName`) is a full-text
+        search over the whole index and can take minutes; resolving
+        the name to a speciesKey first makes it an exact filter (~3 s)
+      * GBIF throttles concurrent bursts, so the pool stays small
+    A wall-clock `budget` returns whatever finished: the community
+    panel degrades to a partial sample instead of stalling the whole
+    analysis.
     """
-    Fetch a small coordinate sample per species for grid overlap.
-    Returns {species: set_of_cells}.
-    """
-    out = {}
-    for sp in species_list:
+    want = list(species_list)
+    if not want:
+        return {}
+
+    def key_for(sp):
         try:
-            r = requests.get(
-                GBIF,
-                params={
-                    "scientificName": sp, "limit": min(limit, 300),
-                    "hasCoordinate": "true",
-                },
-                timeout=20,
-            )
+            m = requests.get(
+                SPECIES_MATCH,
+                params={"name": sp, "strict": "false"},
+                timeout=15,
+            ).json()
+            return m.get("speciesKey") or m.get("acceptedTaxonKey")
+        except Exception:
+            return None
+
+    def one(sp):
+        try:
+            params = {"limit": min(limit, 300), "hasCoordinate": "true"}
+            key = key_for(sp)
+            if key:
+                params["speciesKey"] = key
+            else:
+                params["scientificName"] = sp
+            r = requests.get(GBIF, params=params, timeout=25)
             results = r.json().get("results", [])
             df = pd.DataFrame([
                 {"decimalLatitude": x.get("decimalLatitude"),
                  "decimalLongitude": x.get("decimalLongitude")}
                 for x in results
             ])
-            out[sp] = grid_presence(df)
+            return sp, grid_presence(df)
         except Exception:
-            out[sp] = set()
+            return sp, set()
+
+    out = {}
+    ex = ThreadPoolExecutor(max_workers=4)
+    futs = [ex.submit(one, sp) for sp in want]
+    done, _pending = wait(futs, timeout=budget)
+    for f in done:
+        try:
+            sp, cells = f.result()
+            out[sp] = cells
+        except Exception:
+            continue
+    ex.shutdown(wait=False, cancel_futures=True)
     return out
 
 
@@ -163,20 +198,24 @@ def build_cooccurrence(target_species, target_df, genus_df, max_partners=8):
     partners = []
     for _, row in top.iterrows():
         sp = row["species"]
-        cells = grids.get(sp, set())
-        jac = jaccard(target_cells, cells)
+        cells = grids.get(sp)
+        # no sample in the time budget: report it as such rather than
+        # claiming zero overlap (which would read as allopatry)
+        jac = jaccard(target_cells, cells) if cells else None
         partners.append({
             "species": sp,
             "records": int(row["records"]),
-            "cells": len(cells),
+            "cells": len(cells) if cells else 0,
             "overlap": jac,
             "jaccard_label": (
+                "no sample" if jac is None else
                 "high" if jac >= 0.4 else
                 "moderate" if jac >= 0.15 else "low"
             ),
         })
 
-    partners.sort(key=lambda x: -x["overlap"])
+    partners.sort(key=lambda x: -1 if x["overlap"] is None
+                  else x["overlap"], reverse=True)
     return {
         "genus": target_species.split()[0] if target_species else "",
         "assemblage_size": int(genus_df["species"].nunique())

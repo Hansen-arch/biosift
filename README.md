@@ -86,6 +86,20 @@ the source.**
 - Interactive map with verdict colours (clean / flagged /
   profile-excluded), clustering and per-record popups
 
+### Data patterns & correlations (both modes)
+- **Attribute correlation heatmap** — Pearson *r* between year, latitude,
+  longitude, coordinate uncertainty, coordinate precision, field
+  completeness and the number of checks each record triggers (rows with
+  too few complete pairs are left blank)
+- **Check co-occurrence heatmap** — Jaccard overlap between the quality
+  checks that fired, showing which defects travel together
+- **Flag rate by decade, country and basis of record** — where in time
+  and in which contributing streams the defects concentrate
+- **Record-completeness distribution** — how many of the ten scored
+  Darwin Core fields are populated per record
+- Drawn in-app as SVG and CSS bars (no charting library, no extra
+  network requests) and included in the JSON bundle as `patterns`
+
 ### Species Analysis
 - **10 automated quality checks, each mapped to its official
   [TDWG BDQ](https://github.com/tdwg/bdq) test** — the community-standard

@@ -665,6 +665,7 @@ def analyze_uploaded(df_raw: pd.DataFrame, mapping: dict | None = None,
     from utils.fitness import audit_sdm_readiness
     from utils.charts import get_temporal_stats, get_recommendations
     from utils.dataset_quality import get_dataset_quality_breakdown
+    from standalone.patterns import build_patterns
 
     df, applied = map_columns(df_raw, mapping)
     n = len(df)
@@ -813,6 +814,7 @@ def analyze_uploaded(df_raw: pd.DataFrame, mapping: dict | None = None,
         "precision_stats": get_precision_stats(df),
         "recommendations": recs,
         "flagged_sample": flagged_sample(df, flags),
+        "patterns": build_patterns(df, flags),
         "geojson": rows_geojson(df, flags, limit=5000),
         "standards": {
             "quality_tests": "TDWG BDQ TESTS + CoordinateCleaner-style geographic tests (Zizka et al. 2019)",

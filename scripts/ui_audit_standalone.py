@@ -153,6 +153,21 @@ def clipped_text(tab):
           const hasText = [...el.childNodes].some(
             n => n.nodeType === 3 && n.textContent.trim());
           if (!hasText) return;
+          // SVG children have no clientWidth/scrollWidth; measure
+          // real painted overflow against the SVG viewport instead
+          const svg = el.ownerSVGElement;
+          if (svg) {
+            if (el.tagName === 'title' || el.tagName === 'desc') return;
+            const b = el.getBoundingClientRect();
+            const r = svg.getBoundingClientRect();
+            if (!b.width && !b.height) return;
+            if (b.left < r.left - 1.5 || b.right > r.right + 1.5
+                || b.top < r.top - 1.5 || b.bottom > r.bottom + 1.5) {
+              bad.push('svg-label "' + el.textContent.trim()
+                .slice(0, 24) + '"');
+            }
+            return;
+          }
           if (el.scrollWidth > el.clientWidth + 3
               || el.scrollHeight > el.clientHeight + 4) {
             bad.push(el.tagName + '.'
@@ -268,6 +283,25 @@ def run_analysis(tab, species):
     check("KBA section rendered", bool(kba_txt and
           ("EOO" in kba_txt or "Extent" in kba_txt
            or "Not enough" in kba_txt)), (kba_txt or "")[:80])
+
+    pat = tab.js("""
+      (() => {
+        const el = document.getElementById('patterns');
+        if (!el) return '{"svgs":0,"bars":0,"cells":0,"rows":0,"h":0}';
+        return JSON.stringify({
+          svgs: el.querySelectorAll('svg').length,
+          bars: el.querySelectorAll('.bars').length,
+          cells: el.querySelectorAll('svg rect').length,
+          rows: el.querySelectorAll('.barrow').length,
+          vals: el.querySelectorAll('.celltx').length,
+          h: Math.round(el.getBoundingClientRect().height)});
+      })()
+    """)
+    pd = json.loads(pat)
+    check("charts: correlation heatmap drawn",
+          pd["svgs"] >= 1 and pd["cells"] >= 9 and pd["vals"] >= 9, pat)
+    check("charts: bar figures drawn",
+          pd["bars"] >= 1 and pd["rows"] >= 2 and pd["h"] > 80, pat)
 
     bar = tab.js("""(() => {
         const b = document.getElementById('speciesbar');
@@ -492,7 +526,10 @@ def byod_flow(tab):
     tab.js("document.getElementById('run-byod').click()")
     time.sleep(2)
     st = status_text(tab)
-    check("byod run started", "Analysing" in st, st[:60])
+    # a small upload can finish inside the 2 s poll window, so a
+    # completed status also proves the click reached the pipeline
+    check("byod run started",
+          "Analysing" in st or "Analysis complete" in st, st[:60])
     deadline = time.time() + 150
     final = ""
     while time.time() < deadline:
@@ -533,6 +570,25 @@ def byod_flow(tab):
     dsp = tab.js(
         "document.getElementById('dsprofile').style.display")
     check("dataset profile rendered", dsp == "block", dsp)
+
+    pat = tab.js("""
+      (() => {
+        const el = document.getElementById('patterns');
+        if (!el) return '{"svgs":0,"bars":0,"cells":0,"rows":0,"h":0}';
+        return JSON.stringify({
+          svgs: el.querySelectorAll('svg').length,
+          bars: el.querySelectorAll('.bars').length,
+          cells: el.querySelectorAll('svg rect').length,
+          rows: el.querySelectorAll('.barrow').length,
+          vals: el.querySelectorAll('.celltx').length,
+          h: Math.round(el.getBoundingClientRect().height)});
+      })()
+    """)
+    pd = json.loads(pat)
+    check("byod charts: heatmaps drawn",
+          pd["svgs"] >= 1 and pd["cells"] >= 9 and pd["vals"] >= 9, pat)
+    check("byod charts: bar figures drawn",
+          pd["bars"] >= 1 and pd["rows"] >= 2 and pd["h"] > 80, pat)
     ncv_l = str(ncv_txt).lower()
     check("name verification rendered",
           bool(ncv_txt and ("exact" in ncv_l or "match" in ncv_l)),

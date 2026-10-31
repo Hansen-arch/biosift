@@ -163,6 +163,28 @@ td.num{text-align:right;font-variant-numeric:tabular-nums;color:var(--dim)}
 .spark .axis{stroke:var(--line);stroke-width:1}
 .spark path{fill:rgba(30,122,84,.15);stroke:var(--acc);stroke-width:1.5}
 .gaps{margin-top:6px}
+/* charts — dependency-free SVG heatmaps + CSS bars */
+.chart{display:block;width:100%;height:auto;margin-top:2px}
+.chart .ax{font-size:9.5px;fill:var(--faint)}
+.chart .celltx{font-size:8.5px;fill:var(--text);
+  font-variant-numeric:tabular-nums}
+.chartlegend{display:flex;gap:12px;align-items:center;font-size:10px;
+  color:var(--faint);margin-top:5px}
+.chartlegend i{display:inline-block;width:10px;height:10px;border-radius:2px;
+  vertical-align:-1px;margin-right:4px}
+.bars{margin-top:3px}
+.barrow{display:grid;grid-template-columns:44px 1fr 78px;gap:8px;
+  align-items:center;padding:2px 0}
+.barrow .bl{font-size:10px;color:var(--dim);overflow-wrap:anywhere;
+  font-variant-numeric:tabular-nums}
+.barrow .bv{font-size:10px;color:var(--faint);text-align:right;
+  font-variant-numeric:tabular-nums}
+.btrack{position:relative;height:12px;background:var(--panel);
+  border:1px solid var(--line);border-radius:2px;overflow:hidden}
+.btrack i{position:absolute;left:0;top:0;bottom:0;background:#CFC7B2}
+.btrack i.acc{background:var(--acc);opacity:.85}
+.btrack b{position:absolute;left:0;top:0;bottom:0;background:var(--amber);
+  opacity:.9}
 /* export row */
 #exports{display:none;margin-top:16px}
 #exports .exp{display:flex;gap:8px;flex-wrap:wrap}
@@ -401,6 +423,10 @@ td.num{text-align:right;font-variant-numeric:tabular-nums;color:var(--dim)}
 
         <h2 class="sec">Temporal coverage</h2>
         <div id="temporal"></div>
+
+        <h2 class="sec">Patterns &amp; correlations
+          <span class="chip countchip" id="cnt-patterns"></span></h2>
+        <div id="patterns"></div>
 
         <h2 class="sec">Distribution &amp; KBA Criterion B</h2>
         <div id="kba"></div>
@@ -839,6 +865,127 @@ function sparkline(counts){
     +nMax+' in '+ys[ns.indexOf(nMax)]+'</div>';
 }
 
+/* ── charts ────────────────────────────────────────────────────
+   Server sends the numbers; these render them as SVG / CSS bars
+   so the figures inherit the app's palette and fonts. */
+function heatmapHTML(vars, cells, o){
+  o=o||{};
+  const n=vars.length, left=o.left||88, top=o.top||64, cell=o.cell||26;
+  // right margin leaves room for the rotated column labels
+  const W=left+n*cell+46, H=top+n*cell+6;
+  let s='<svg class="chart" viewBox="0 0 '+W+' '+H+'" role="img">';
+  vars.forEach((v,i)=>{
+    const x=left+i*cell+cell/2;
+    s+='<text class="ax" x="'+x+'" y="'+(top-10)
+      +'" transform="rotate(-55 '+x+' '+(top-10)+')" text-anchor="start">'
+      +esc(v.short||v.label)+'</text>';
+  });
+  vars.forEach((v,i)=>{
+    s+='<text class="ax" x="'+(left-6)+'" y="'
+      +(top+i*cell+cell/2+3)+'" text-anchor="end">'
+      +esc(v.short||v.label)+'</text>';
+    vars.forEach((w,j)=>{
+      const val=(cells[i]||[])[j];
+      const x=left+j*cell, y=top+i*cell;
+      let fill='#EDE9DC';
+      if(val!=null){
+        const a=(0.10+0.75*Math.min(1,Math.abs(val))).toFixed(2);
+        fill=(val>=0?'rgba(19,111,78,':'rgba(29,95,168,')+a+')';
+      }
+      s+='<rect x="'+x+'" y="'+y+'" width="'+(cell-2)+'" height="'+(cell-2)
+        +'" rx="1.5" fill="'+fill+'" stroke="#D6CFBC" stroke-width=".5">'
+        +'<title>'+esc(v.label+' / '+w.label+': '
+          +(val!=null?val.toFixed(2):'too few pairs'))+'</title></rect>';
+      if(val!=null){
+        s+='<text class="celltx" x="'+(x+cell/2-1)+'" y="'+(y+cell/2+3)
+          +'" text-anchor="middle"'
+          +(Math.abs(val)>0.62?' fill="#FBF9F2"':'')+'>'
+          +val.toFixed(2)+'</text>';
+      }
+    });
+  });
+  return s+'</svg>';
+}
+
+function flagBars(rows, note){
+  const max=Math.max.apply(null, rows.map(r=>r.records).concat([1]));
+  return '<div class="bars">'
+    + rows.map(r=>{
+        const w=Math.max(1,Math.round(r.records/max*100));
+        const fw=Math.round(w*(r.flag_pct||0)/100);
+        return '<div class="barrow"><span class="bl">'+esc(r.label)
+          +'</span><span class="btrack"><i style="width:'+w+'%"></i>'
+          +'<b style="width:'+fw+'%"></b></span><span class="bv">'
+          +Number(r.records).toLocaleString()
+          +(r.flag_pct!=null?' · '+r.flag_pct+'%':'')+'</span></div>';
+      }).join('')
+    + '</div>'
+    + (note?'<div class="cite">'+esc(note)+'</div>':'');
+}
+
+function distBars(rows, note){
+  const max=Math.max.apply(null, rows.map(r=>r.count).concat([1]));
+  return '<div class="bars">'
+    + rows.map(r=>{
+        const w=r.count?Math.max(1,Math.round(r.count/max*100)):0;
+        return '<div class="barrow"><span class="bl">'+esc(r.label)
+          +'</span><span class="btrack"><i class="acc" style="width:'+w
+          +'%"></i></span><span class="bv">'
+          +Number(r.count).toLocaleString()+'</span></div>';
+      }).join('')
+    + '</div>'
+    + (note?'<div class="cite">'+esc(note)+'</div>':'');
+}
+
+function patternsHTML(p){
+  if(!p) return '<div class="note">No chart data for this dataset.</div>';
+  let h='';
+  const c=p.correlation;
+  if(c && c.variables && c.variables.length>=2 && c.cells){
+    h+='<div class="note" style="margin-bottom:2px"><b>Attributes that '
+      +'move together</b></div>'
+      + heatmapHTML(c.variables, c.cells, {left:88, top:64, cell:26})
+      + '<div class="chartlegend">'
+      + '<span><i style="background:#136F4E"></i>positive</span>'
+      + '<span><i style="background:#1D5FA8"></i>negative</span>'
+      + '<span>Pearson r</span></div>'
+      + '<div class="cite">'+esc(c.method||'')+'</div>';
+  }
+  const co=p.cooccurrence;
+  if(co && co.checks && co.checks.length>=2 && co.cells){
+    h+='<div class="note" style="margin:12px 0 2px"><b>Checks that fire '
+      +'together</b></div>'
+      + heatmapHTML(co.checks, co.cells, {left:88, top:64, cell:26})
+      + '<div class="chartlegend">'
+      + '<span><i style="background:#136F4E"></i>Jaccard overlap</span>'
+      + '</div><div class="cite">'+esc(co.method||'')+'</div>';
+  }
+  const dec=p.decades||[];
+  if(dec.length>=2){
+    h+='<div class="note" style="margin:12px 0 2px"><b>Flag rate by decade</b>'
+      +'</div>'+flagBars(dec,
+        'Bar length = records; amber share = flagged records.');
+  }
+  const cd=p.completeness_dist||[];
+  if(cd.length){
+    h+='<div class="note" style="margin:12px 0 2px"><b>Record completeness</b>'
+      +'</div>'+distBars(cd,
+        'Share of ten scored Darwin Core fields present, per record.');
+  }
+  const cat=p.categorical||{};
+  if(cat.by_country && cat.by_country.length>=2){
+    h+='<div class="note" style="margin:12px 0 2px"><b>Flag rate by '
+      +'country</b></div>'+flagBars(cat.by_country,
+        'Amber share = flagged records in that country.');
+  }
+  if(cat.by_basis && cat.by_basis.length>=2){
+    h+='<div class="note" style="margin:12px 0 2px"><b>Basis of record</b>'
+      +'</div>'+flagBars(cat.by_basis,
+        'Amber share = flagged records for that basis.');
+  }
+  return h || '<div class="note">Not enough records for charts.</div>';
+}
+
 function render(d){
   document.getElementById('results').style.display='block';
   document.getElementById('exports').style.display='block';
@@ -893,6 +1040,10 @@ function render(d){
 
   document.getElementById('temporal').innerHTML = temporalHTML(d);
 
+  document.getElementById('patterns').innerHTML = patternsHTML(d.patterns);
+  const figs=document.querySelectorAll('#patterns svg, #patterns .bars').length;
+  setCount('cnt-patterns', figs? figs+' figures' : 'none');
+
   document.getElementById('kba').innerHTML = kbaHTML(d);
 
   // community (GBIF mode only — element hidden in BYOD mode)
@@ -912,7 +1063,7 @@ function render(d){
       <table><colgroup/><tr><th>Congener</th><th style="text-align:right">Overlap</th></tr>`
       + coo.partners.slice(0,6).map(p=>`
         <tr><td style="font-style:italic">${p.species}</td>
-        <td class="num">${p.overlap} <span class="chip ${p.overlap>=0.4?'ok':(p.overlap>=0.15?'warn':'')}">${p.jaccard_label}</span></td></tr>`).join('')
+        <td class="num">${p.overlap==null?'n/a':p.overlap} <span class="chip ${p.overlap==null?'':(p.overlap>=0.4?'ok':(p.overlap>=0.15?'warn':''))}">${p.jaccard_label}</span></td></tr>`).join('')
       + '</table>';
   }
   com.innerHTML=html || '<div class="note">No community data.</div>';
@@ -1418,6 +1569,10 @@ function renderByod(d){
     rcEl.style.display='block';
     setCount('cnt-recs', rc.length+' actions');
   }
+
+  document.getElementById('patterns').innerHTML = patternsHTML(d.patterns);
+  const figs=document.querySelectorAll('#patterns svg, #patterns .bars').length;
+  setCount('cnt-patterns', figs? figs+' figures' : 'none');
 
   document.getElementById('cites').innerHTML =
     'Method: '+d.standards.quality_tests;
