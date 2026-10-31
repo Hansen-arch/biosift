@@ -52,6 +52,7 @@ from utils.cooccurrence import (
 )
 from utils.maps import build_map
 from utils.charts import get_temporal_stats
+from standalone.patterns import build_patterns
 
 app = FastAPI(
     title="BioSift Standalone API",
@@ -255,6 +256,7 @@ def analysis(
         },
         "carbon": carbon,
         "precision_stats": get_precision_stats(df),
+        "patterns": build_patterns(df, flags),
         "multimedia": get_multimedia_stats(df),
         "records": (
             {"analysed": _clean_records(df, flags),

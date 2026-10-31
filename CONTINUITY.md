@@ -1,13 +1,13 @@
 # BioSift — Project Continuity
 
 > Living document. Update after every milestone so any future session can
-> resume with full context. **Current version: v3.4** (2026-10-21).
+> resume with full context. **Current version: v3.5** (2026-10-31).
 
 ---
 
 ## ⏯ START HERE — next session
 
-### What BioSift is now (v3.4, all verified working)
+### What BioSift is now (v3.5, all verified working)
 
 A biodiversity data-quality & distribution-intelligence platform over
 the public GBIF API — **and over the user's own data (BYOD)** — shipped
@@ -27,7 +27,13 @@ benchmarking, SDM readiness gates (Zizka 2020 / Marcer 2022, 2
 strictness profiles), EOO/AOO + KBA Criterion B screening (+ hull
 GeoJSON), GloBI interactions, congeneric co-occurrence (Jaccard),
 plant carbon scenarios (Chave 2014 + IPCC 2006), Reproducibility Pack,
-PDF report, data-cube SQL.
+PDF report, data-cube SQL, and a **patterns layer** (attribute
+correlation matrix, check co-occurrence Jaccard matrix, flag rate by
+decade/country/basis, completeness distribution) served as
+`bundle.patterns` for both apps.
+
+Charts render as SVG/CSS in the standalone frontend — no charting
+library, no extra network calls, no API keys.
 
 ### Run everything
 
@@ -74,9 +80,12 @@ BIOSIFT_URL=http://localhost:8622 venv/bin/python scripts/ui_audit.py analysis
    Docker access from the agent shell: `sg docker -c "..."` (hans was
    added to the docker group without re-login); compose v2 v5.5.1
    plugin installed user-space at ~/.docker/cli-plugins/.
-4. Analysis bundles take 30–75 s (multi-request GBIF + GloBI + genus
-   facet). If it feels slow next session: parallelise inside
-   `standalone/server.py:analysis()` or cache genus_df by genus key.
+4. Analysis bundles take ~16 s typical, up to ~60 s cold. **Do not
+   hammer GBIF while testing** — burst traffic throttles the API and
+   the next analysis then blocks for minutes, which looks exactly like
+   an app bug (the audit times out at 180 s and later checks fail
+   against a stale bundle). If a run seems broken, wait a minute and
+   rerun before debugging.
 
 ### Prioritised roadmap
 
@@ -106,8 +115,57 @@ BIOSIFT_URL=http://localhost:8622 venv/bin/python scripts/ui_audit.py analysis
   name (all views export `render`).
 - **Streamlit h1 font reset** beats single-class selectors — use
   `.hero .hero-title` specificity.
+- **GBIF congener grids** (`utils/cooccurrence.py`): a `scientificName`
+  occurrence query is a full-text search and takes 20-40 s; resolve the
+  name via `/species/match` to a `speciesKey` first and filter on that
+  (~3 s). GBIF throttles concurrent bursts, so the pool stays at 4
+  workers. `fetch_species_grids(budget=28)` returns partial results
+  labelled `no sample` rather than stalling the endpoint (was 290 s,
+  now 16 s typical).
+- **Audit clip detector**: SVG children report 0 for
+  clientWidth/scrollWidth, so overflow must be measured as painted
+  overflow (`getBoundingClientRect()` of the text vs its SVG viewport).
+  The old scrollWidth test false-positived on rotated axis labels.
+- **`patterns.py`**: `a[[k, k]]` returns a two-column frame — select
+  correlated columns by position (`iloc[:,0]/[:,1]`), not by name.
 
 ---
+
+## v3.5 — correlation & pattern charts (2026-10-31)
+
+Both modes gained a charts layer answering two questions the report
+could not: *which attributes move together* and *which defects travel
+together*.
+
+- **New `standalone/patterns.py`** (pure pandas, no plotting
+  dependency — the frontend draws SVG heatmaps and CSS bars so the
+  figures inherit the app's palette and need no network):
+  - `correlation` — Pearson *r* over Year, Lat, Lon, coordinate
+    uncertainty, decimal precision, field completeness and checks
+    triggered per record. Pairwise-complete rows (n≥5);
+    zero-variance columns are dropped, since a constant column cannot
+    correlate and used to render a blank diagonal cell.
+  - `cooccurrence` — Jaccard overlap between the eight most frequent
+    checks: which defects tend to hit the same records.
+  - `decades` — records and flag rate per decade.
+  - `completeness_dist` — per-record share of the ten scored Darwin
+    Core fields.
+  - `categorical` — flag rate by country and by basis of record.
+- Served as `bundle.patterns` in **both** the species endpoint and the
+  BYOD bundle; rendered in a new "Patterns & correlations" section in
+  `standalone/frontend.py`. Graceful degradation: fewer usable columns
+  means fewer figures, and blank cells read "too few pairs".
+- Audit gained `#patterns` assertions for both the GBIF run and the
+  BYOD flow (heatmaps must draw cells, bar charts must draw rows).
+
+**Performance fix found while verifying** (`utils/cooccurrence.py`):
+the community panel fetched congener coordinate samples serially with
+name-text queries — 20-40 s each — so a 500-record analysis could
+block for **290 s**. Names are now resolved to speciesKeys first
+(exact filter), fetched on a 4-worker pool under a 28 s wall-clock
+budget, and species the budget missed are reported as `no sample`
+instead of being shown as zero overlap (which would read as
+allopatry). Measured: 290 s → 16 s typical.
 
 ## v3.4 — light scholarly UI overhaul, both apps (2026-10-21)
 
