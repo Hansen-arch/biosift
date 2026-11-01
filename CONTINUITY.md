@@ -1,13 +1,31 @@
 # BioSift — Project Continuity
 
 > Living document. Update after every milestone so any future session can
-> resume with full context. **Current version: v3.5** (2026-10-31).
+> resume with full context. **Current version: v3.6** (2026-11-01).
 
 ---
 
 ## ⏯ START HERE — next session
 
-### What BioSift is now (v3.5, all verified working)
+### What BioSift is now (v3.6, all verified working)
+
+**v3.6 — species analysis studio (2026-11-01).** The standalone app now
+answers the analysis questions the audit raised before it checked data:
+`factsheet` (taxonomy/synonyms/vernacular/habitat from `/species`,
+`/synonyms`, `/vernacularNames`, `/speciesProfiles`), `rangeshift`
+(early vs late period — counts, centroid, 5–95th extent, 1° cell
+turnover with Jaccard, km displacement and direction, **plus the exact
+coordinates each period's statistics came from** under `points.a/b` for
+the map overlay), `envelope` (NASA POWER climatology at ≤24 record
+locations: annual T/P/elevation ranges, monthly medians), `patterns.trend`
+(records per distinct `recordedBy` per year, indexed to median —
+reported as a reporting-rate proxy, not abundance), `year_counts`
+(the `facet=year` population histogram, 127 years for oak). New module
+`standalone/timeseries.py` does the time-aware probing because a
+newest-first page carries no history. Frontend gained three sections,
+seasonality + envelope + trend + year-curve charts, the period overlay,
+and R (`rgbif`) / Python script exports. Full UI audit: **ALL CHECKS
+PASSED** (both species, 4 viewports, BYOD, basemap switch).
 
 A biodiversity data-quality & distribution-intelligence platform over
 the public GBIF API — **and over the user's own data (BYOD)** — shipped
@@ -80,7 +98,11 @@ BIOSIFT_URL=http://localhost:8622 venv/bin/python scripts/ui_audit.py analysis
    Docker access from the agent shell: `sg docker -c "..."` (hans was
    added to the docker group without re-login); compose v2 v5.5.1
    plugin installed user-space at ~/.docker/cli-plugins/.
-4. Analysis bundles take ~16 s typical, up to ~60 s cold. **Do not
+4. Analysis bundles take ~45–80 s since v3.6 (time probes, factsheet,
+   envelope and period sampling all hit the network; they run in a
+   4-worker pool). The UI audit's per-analysis budget is 180 s, so a
+   full audit now runs ~5 min — do not raise concurrency to compensate,
+   GBIF throttles. **Do not
    hammer GBIF while testing** — burst traffic throttles the API and
    the next analysis then blocks for minutes, which looks exactly like
    an app bug (the audit times out at 180 s and later checks fail
@@ -100,6 +122,18 @@ BIOSIFT_URL=http://localhost:8622 venv/bin/python scripts/ui_audit.py analysis
 
 ### Hard-won API knowledge (do not re-learn)
 
+- **GBIF facets (v3.6)**: only real field names work — `facet=dataset`
+  and `facet=year`-as-a-wrong-shape are silently dropped (`facets: []`).
+  Working names: `datasetKey`, `recordedBy`, `year`. Multiple facets go
+  as a **list** (`params=[("facet","datasetKey"),("facet","recordedBy")]`),
+  because `facet=[...]` as a kwargs value raises. `limit=0` facet probes
+  cost ~1 s versus ~7 s for a coordinate page. Concurrent coordinate
+  pages get throttled — small pool (5) + retries.
+- **Range-shift overlay (v3.6)**: never rebuild overlay points from the
+  map sample's years. The 500-record sample is newest-first and can hold
+  no records in either measured period (oak: periods 1900-1901 and
+  2025-2026 both empty in the sample), so the toggle silently no-ops.
+  The backend returns `rangeshift.points.a/b` and the overlay plots them.
 - **GBIF occurrence search**: `facet=species` is a silent NO-OP — use
   `facet=scientificName` (returns authorship; strip with
   `_strip_authorship`) + `taxonKey=<genusKey from /species/match>`.
