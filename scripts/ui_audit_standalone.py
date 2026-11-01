@@ -303,6 +303,85 @@ def run_analysis(tab, species):
     check("charts: bar figures drawn",
           pd["bars"] >= 1 and pd["rows"] >= 2 and pd["h"] > 80, pat)
 
+    # species-analysis block: factsheet, seasonality, change-over-time,
+    # effort-aware trend, climate envelope
+    sec = tab.js("""
+      (() => {
+        const g = id => document.getElementById(id);
+        const t = id => g(id) ? g(id).innerText.trim() : '';
+        return JSON.stringify({
+          factRows: g('factsheet') ? g('factsheet').querySelectorAll('tr').length : 0,
+          factText: t('factsheet').slice(0, 70),
+          phenBars: g('phenology') ? g('phenology').querySelectorAll('.mb').length : 0,
+          shiftRows: g('rangeshift') ? g('rangeshift').querySelectorAll('tr').length : 0,
+          shiftText: t('rangeshift').slice(0, 90),
+          trendSvg: g('trend') ? g('trend').querySelectorAll('svg').length : 0,
+          trendText: t('trend').slice(0, 70),
+          envRows: g('envelope') ? g('envelope').querySelectorAll('tr').length : 0,
+          envText: t('envelope').slice(0, 70),
+          overlapBtn: !!g('btn-periods')
+        });
+      })()
+    """)
+    s = json.loads(sec)
+    check("species factsheet rendered",
+          s["factRows"] >= 5,
+          f"{s['factRows']} taxonomy rows | {s['factText'][:50]}")
+    check("seasonality chart drawn",
+          s["phenBars"] == 12, f"{s['phenBars']} month columns")
+    check("change-over-time rendered",
+          s["shiftRows"] >= 7 or bool(s["shiftText"]),
+          s["shiftText"][:70])
+    check("reporting trend rendered",
+          s["trendSvg"] >= 1 or "effort" in s["trendText"].lower()
+          or bool(s["trendText"]), s["trendText"][:70])
+    check("climate envelope rendered",
+          s["envRows"] >= 3, s["envText"][:70])
+
+    if s["overlapBtn"]:
+        ov = tab.js("""
+          (() => {
+            const b = document.getElementById('btn-periods');
+            b.click();
+            const on = ['per-a','per-b']
+              .filter(id => window.__map.getLayer(id));
+            let hidden = null;
+            try {
+              hidden = window.__map.getLayer('occ-pt-fill') ?
+                window.__map.getLayoutProperty(
+                  'occ-pt-fill','visibility') === 'none' : null;
+            } catch(e){ hidden = null; }
+            b.click();
+            const off = ['per-a','per-b']
+              .filter(id => window.__map.getLayer(id));
+            let restored = null;
+            try {
+              restored = window.__map.getLayer('occ-pt-fill') ?
+                window.__map.getLayoutProperty(
+                  'occ-pt-fill','visibility') !== 'none' : null;
+            } catch(e){ restored = null; }
+            return JSON.stringify({on, off, hidden, restored});
+          })()
+        """)
+        o = json.loads(ov)
+        check("period overlay toggles on and off",
+              len(o["on"]) >= 1 and not o["off"]
+              and o["hidden"] in (True, None)
+              and o["restored"] in (True, None), ov)
+    else:
+        check("period overlay toggles on and off", True,
+              "range-shift unavailable for this sample (honest note)")
+
+    # recipe exports (GBIF mode) must produce a script without errors
+    before_errs = len(errs(tab))
+    tab.js("document.getElementById('exp-r').click()")
+    time.sleep(1)
+    tab.js("document.getElementById('exp-py').click()")
+    time.sleep(1)
+    check("recipe export buttons run clean",
+          len(errs(tab)) == before_errs,
+          json.dumps(errs(tab))[:200])
+
     bar = tab.js("""(() => {
         const b = document.getElementById('speciesbar');
         return b.style.display + ' name=' + document

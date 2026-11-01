@@ -112,6 +112,32 @@ the source.**
   precision tiers, multimedia quality (incl. broken-image sampling)
 - Per-contributing-dataset quality breakdown with A–F grades
 
+### Species analysis studio (standalone app)
+- **Species factsheet** — taxonomy, synonyms, vernacular names, habitat
+  description and IUCN status, assembled from the GBIF backbone
+- **Change over time (range shift)** — compares an early with a late
+  period: record counts, centroid, 5–95th percentile extent, occupied
+  1° cells and grid-cell turnover (Jaccard), plus centroid displacement
+  in km with its north/south direction. The sampling caveat ships with
+  the number: a shift in *recorded* extent also carries effort and
+  observer geography
+- **Period overlay on the map** — the exact points the shift was
+  computed from, early period blue and late period amber, toggleable on
+  and off
+- **Climate envelope** — annual temperature, precipitation and elevation
+  sampled at up to 24 record locations via NASA POWER (key-free), with
+  monthly median curves; a descriptive envelope of where records sit,
+  not a fitted niche model
+- **Seasonality** — records by month with the peak month named
+- **Effort-aware reporting trend** — records per distinct recorder per
+  year, indexed to its own median and labelled a reporting-rate proxy,
+  never an abundance estimate
+- **Reproducible scripts** — one-click R (`rgbif`) and Python exports
+  that regenerate the exact query, alongside the JSON bundle
+- Time-aware sampling: a newest-first GBIF page holds no history, so
+  per-year counts, effort facets and the earliest/latest coordinate
+  samples are probed separately
+
 ### Species interactions (GloBI)
 - Live query of [GloBI](https://globalbioticinteractions.org) — predator–prey,
   parasite–host, pollination, pathogen and symbiosis records for the

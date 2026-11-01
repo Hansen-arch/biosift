@@ -185,6 +185,23 @@ td.num{text-align:right;font-variant-numeric:tabular-nums;color:var(--dim)}
 .btrack i.acc{background:var(--acc);opacity:.85}
 .btrack b{position:absolute;left:0;top:0;bottom:0;background:var(--amber);
   opacity:.9}
+/* seasonality columns */
+.months{display:flex;gap:4px;align-items:flex-end;height:92px;
+  margin-top:6px}
+.mb{flex:1;display:flex;flex-direction:column;justify-content:flex-end;
+  align-items:center;height:100%;min-width:0}
+.mb i{display:block;width:100%;background:var(--acc);opacity:.8}
+.mb span{font-size:9px;color:var(--faint);margin-top:3px}
+/* trend / envelope line charts */
+.trend{display:block;width:100%;height:auto;margin-top:6px}
+.trend .base{stroke:var(--line-strong);stroke-dasharray:4 3;fill:none}
+.trend .line{fill:none;stroke:var(--blue);stroke-width:1.6}
+.trend .ax{font-size:9.5px;fill:var(--faint)}
+/* compact inline buttons (map overlay, scripts) */
+.sbtn{background:var(--card);border:1px solid var(--line-strong);
+  color:var(--text);border-radius:4px;padding:7px 12px;font-size:11.5px;
+  font-weight:600;cursor:pointer;margin:10px 6px 0 0}
+.sbtn:hover{border-color:var(--acc);color:var(--acc)}
 /* export row */
 #exports{display:none;margin-top:16px}
 #exports .exp{display:flex;gap:8px;flex-wrap:wrap}
@@ -412,6 +429,10 @@ td.num{text-align:right;font-variant-numeric:tabular-nums;color:var(--dim)}
 
         <div id="profbox" class="byod-only" style="display:none"></div>
 
+        <h2 class="sec gbif-only">Species factsheet
+          <span class="chip countchip" id="cnt-fact"></span></h2>
+        <div id="factsheet" class="gbif-only"></div>
+
         <h2 class="sec">Quality checks, TDWG BDQ <span class="chip countchip" id="cnt-checks"></span></h2>
         <table id="t-checks">
           <colgroup><col class="c-wide"/><col class="c-bdq"/>
@@ -424,9 +445,25 @@ td.num{text-align:right;font-variant-numeric:tabular-nums;color:var(--dim)}
         <h2 class="sec">Temporal coverage</h2>
         <div id="temporal"></div>
 
+        <h2 class="sec">Seasonality
+          <span class="chip countchip" id="cnt-phen"></span></h2>
+        <div id="phenology"></div>
+
+        <h2 class="sec">Change over time
+          <span class="chip countchip" id="cnt-shift"></span></h2>
+        <div id="rangeshift"></div>
+
+        <h2 class="sec">Reporting trend, effort-aware
+          <span class="chip countchip" id="cnt-trend"></span></h2>
+        <div id="trend"></div>
+
         <h2 class="sec">Patterns &amp; correlations
           <span class="chip countchip" id="cnt-patterns"></span></h2>
         <div id="patterns"></div>
+
+        <h2 class="sec">Climate envelope
+          <span class="chip countchip" id="cnt-env"></span></h2>
+        <div id="envelope"></div>
 
         <h2 class="sec">Distribution &amp; KBA Criterion B</h2>
         <div id="kba"></div>
@@ -468,6 +505,8 @@ td.num{text-align:right;font-variant-numeric:tabular-nums;color:var(--dim)}
             <button id="exp-geo" class="byod-only" style="display:none">GeoJSON</button>
             <button id="exp-flagged" class="byod-only" style="display:none">Flagged CSV</button>
             <button id="exp-clean" class="byod-only" style="display:none">Clean CSV (profile)</button>
+            <button id="exp-r" class="gbif-only">R recipe</button>
+            <button id="exp-py" class="gbif-only">Python recipe</button>
           </div>
         </div>
       </div>
@@ -729,6 +768,10 @@ function pushGeo({points, hull}){
   if(!mapReady) return;
   // a popup tied to the previous dataset is stale — drop it
   try{ popup.remove(); }catch(e){}
+  // a period overlay belongs to the previous dataset — drop it too
+  clearPeriodLayers();
+  const pb=document.getElementById('btn-periods');
+  if(pb) pb.textContent='Overlay periods on map';
   // MapLibre v4 removeLayer/removeSource return void (not Promises) —
   // guard with getLayer/getSource, never .catch()
   ['occ-heat','occ-hull-fill','occ-hull-line','occ-pt-fill',
@@ -986,6 +1029,358 @@ function patternsHTML(p){
   return h || '<div class="note">Not enough records for charts.</div>';
 }
 
+/* ── species analysis: factsheet, seasonality, range shift,
+   effort-aware trend, climate envelope ─────────────────────── */
+const MONTHNAMES=['January','February','March','April','May','June',
+  'July','August','September','October','November','December'];
+
+function factsheetHTML(f){
+  if(!f || !f.available)
+    return '<div class="note">Taxonomy unavailable: '
+      + esc((f && f.reason) || 'no data') + '</div>';
+  const tax=(f.taxonomy||[]).map(r=>
+    '<tr><td style="color:var(--faint);text-transform:capitalize">'
+    + esc(r.rank) + '</td><td'
+    + (r.rank==='species' ? ' style="font-style:italic"' : '')
+    + '>' + esc(r.name) + '</td></tr>').join('');
+  let h='<table><colgroup/>' + tax + '</table>';
+  h+='<div class="note">' + esc(f.scientific_name)
+    + (f.authorship ? ' <span class="mono">' + esc(f.authorship) + '</span>' : '')
+    + (f.taxonomic_status ? ' <span class="chip ok">' + esc(f.taxonomic_status) + '</span>' : '')
+    + (f.rank ? ' <span class="chip">' + esc(f.rank) + '</span>' : '')
+    + (f.extinct ? ' <span class="chip bad">extinct</span>' : '') + '</div>';
+  const line=(label, items, cls)=>{
+    if(!items || !items.length) return '';
+    return '<div class="note" style="margin-top:6px"><b>' + label
+      + '</b>: ' + items.map(x=>'<span class="chip'
+        + (cls ? ' ' + cls : '') + '">' + esc(x) + '</span>').join('')
+      + '</div>';
+  };
+  h += line('Synonyms in backbone (' + (f.synonyms_total||0) + ')', f.synonyms);
+  h += line('Common names', f.common_names);
+  h += line('Habitat', f.habitats, 'ok');
+  h += line('Threat status', f.threat_status, 'warn');
+  if(f.source_dataset || f.gbif_url){
+    h+='<div class="cite">Backbone: ' + esc(f.source_dataset || 'GBIF')
+      + (f.gbif_url ? ' · <a href="' + esc(f.gbif_url)
+        + '" target="_blank" rel="noopener" style="color:var(--blue)">'
+        + 'Open on GBIF</a>' : '') + '</div>';
+  }
+  return h;
+}
+
+function phenologyHTML(p){
+  if(!p || !p.counts || !p.total)
+    return '<div class="note">Not enough dated records for a '
+      + 'seasonality profile.</div>';
+  const max=Math.max.apply(null, p.counts) || 1;
+  const L=['J','F','M','A','M','J','J','A','S','O','N','D'];
+  const bars=p.counts.map((c,i)=>
+    '<span class="mb" title="' + MONTHNAMES[i] + ': ' + c + ' records ('
+    + (c/p.total*100).toFixed(1) + '%)"><i style="height:'
+    + Math.round(c/max*100) + '%"></i><span>' + L[i] + '</span></span>').join('');
+  return '<div class="months">' + bars + '</div>'
+    + '<div class="note mono">peak ' + MONTHNAMES[p.peak_month-1] + ' · '
+    + p.peak_pct + '% of ' + p.total.toLocaleString() + ' dated records</div>'
+    + '<div class="cite">' + esc(p.method) + '</div>';
+}
+
+function trendHTML(t){
+  if(!t || !t.series || t.series.length<4)
+    return '<div class="note">Not enough year-on-year coverage for an '
+      + 'effort-aware index.</div>';
+  const s=t.series, W=340, H=84, P=10;
+  const xs=s.map(r=>r.year);
+  const ys=s.map(r=>Math.min(r.index, 250));
+  const x0=xs[0], x1=xs[xs.length-1];
+  const ymax=Math.max(150, Math.max.apply(null, ys)) * 1.05;
+  const X=i=>P+(W-2*P)*(x1===x0 ? 0.5 : (xs[i]-x0)/(x1-x0));
+  const Y=v=>H-P-(H-2*P)*(v/ymax);
+  let d='M ' + X(0).toFixed(1) + ' ' + Y(ys[0]).toFixed(1);
+  for(let i=1;i<xs.length;i++)
+    d+=' L ' + X(i).toFixed(1) + ' ' + Y(ys[i]).toFixed(1);
+  const base=Y(100).toFixed(1);
+  return '<svg class="trend" viewBox="0 0 ' + W + ' ' + H + '" role="img">'
+    + '<line class="base" x1="' + P + '" x2="' + (W-P) + '" y1="' + base
+    + '" y2="' + base + '"/>'
+    + '<path class="line" d="' + d + '"/>'
+    + '<text class="ax" x="' + P + '" y="' + (H-2) + '">' + x0 + '</text>'
+    + '<text class="ax" x="' + (W-P) + '" y="' + (H-2)
+    + '" text-anchor="end">' + x1 + '</text>'
+    + '</svg>'
+    + '<div class="note mono">dashed line = long-term median (100) · '
+    + 'latest ' + s[s.length-1].index + '</div>'
+    + (t.targeted ? '<div class="note mono">'
+        + esc(t.targeted.span || '') + ' · '
+        + t.targeted.years_sampled + ' years probed</div>' : '')
+    + '<div class="cite">' + esc(t.method) + '</div>'
+    + '<div class="cite">' + esc(t.caveat) + '</div>';
+}
+
+function rangeShiftHTML(rs){
+  if(!rs || !rs.available)
+    return '<div class="note">Change-over-time comparison unavailable: '
+      + esc((rs && rs.reason) || 'not enough dated records') + '</div>';
+  const A=rs.period_a, B=rs.period_b, s=rs.shift, t=rs.turnover;
+  const row=(k,v)=>'<tr><td>' + k + '</td><td class="num">' + v + '</td></tr>';
+  return '<table><colgroup/>'
+    + '<tr><th>Measure</th><th style="text-align:right">Value</th></tr>'
+    + row('Period A, early (' + A.year_median + ' median)',
+        A.records.toLocaleString() + ' rec · ' + A.year_min + '–' + A.year_max)
+    + row('Period B, late (' + B.year_median + ' median)',
+        B.records.toLocaleString() + ' rec · ' + B.year_min + '–' + B.year_max)
+    + row('Centroid shift', '<b>' + s.centroid_km.toLocaleString() + ' km</b>')
+    + row('North / south component', (s.north_km>0?'+':'') + s.north_km
+        + ' km · ' + esc(s.direction))
+    + row('East / west component', (s.east_km>0?'+':'') + s.east_km + ' km')
+    + row('Lat. extent A → B', A.lat_extent + '° → ' + B.lat_extent + '° ('
+        + (s.lat_extent_delta>0?'+':'') + s.lat_extent_delta + '°)')
+    + row('1° cells shared / A only / B only',
+        t.shared + ' / ' + t.only_a + ' / ' + t.only_b
+        + ' (Jaccard ' + t.jaccard + ')')
+    + '</table>'
+    + '<button class="sbtn" id="btn-periods">Overlay periods on map</button>'
+    + '<div class="note mono">blue = period A, ochre = period B; '
+    + 'verdict points hide while the overlay is on</div>'
+    + '<div class="cite">' + esc(rs.method) + '</div>'
+    + (rs.targeted ? '<div class="cite">Probed early: '
+        + esc((rs.targeted.early_years||[]).join(', ')) + ' · late: '
+        + esc((rs.targeted.late_years||[]).join(', ')) + '. '
+        + esc(rs.targeted.note || '') + '</div>' : '')
+    + '<div class="cite" style="color:var(--amber)">' + esc(rs.caveat) + '</div>';
+}
+
+function envChart(temp, prec, months){
+  const W=340, H=92, P=10;
+  const good=v=>v!=null && isFinite(v);
+  const tv=temp.filter(good), pv=prec.filter(good);
+  if(!tv.length) return '';
+  const tmax=Math.max.apply(null, tv)+2, tmin=Math.min.apply(null, tv)-2;
+  const span=Math.max(1, tmax-tmin);
+  const pmax=Math.max.apply(null, pv.concat([1]));
+  const X=i=>P+(W-2*P)*(i/11);
+  const YT=v=>H-P-(H-2*P)*((v-tmin)/span);
+  let path='';
+  temp.forEach((v,i)=>{ if(!good(v)) return;
+    path+=(path?' L ':'M ')+X(i).toFixed(1)+' '+YT(v).toFixed(1); });
+  let bars='';
+  prec.forEach((v,i)=>{ if(!good(v)) return;
+    const h=Math.max(1, Math.round((H-2*P)*(v/pmax)));
+    bars+='<rect x="'+(X(i)-5)+'" y="'+(H-P-h)+'" width="10" height="'+h
+      +'" fill="rgba(29,95,168,.26)"><title>' + months[i] + ': ' + v
+      +' mm</title></rect>'; });
+  return '<svg class="trend" viewBox="0 0 ' + W + ' ' + H + '" role="img">'
+    + bars
+    + '<line class="base" x1="'+P+'" x2="'+(W-P)+'" y1="'+(H-P)
+    +'" y2="'+(H-P)+'"/>'
+    + '<path class="line" d="'+path+'"/></svg>'
+    + '<div class="chartlegend"><span class="mono">blue bars: monthly '
+    + 'precipitation (mm) · line: temperature (°C)</span></div>';
+}
+
+function envelopeHTML(e){
+  if(!e || !e.available)
+    return '<div class="note">Climate envelope unavailable: '
+      + esc((e && e.reason) || 'no data') + '</div>';
+  const rng=(v,u)=> v ? v.min + '–' + v.max + ' ' + u + ' (median '
+      + v.median + ')' : 'n/a';
+  let h='<table><colgroup/>'
+    + '<tr><th>Variable</th><th style="text-align:right">Across records</th></tr>'
+    + '<tr><td>Mean annual temperature</td><td class="num">'
+    + rng(e.temp_annual_c, '°C') + '</td></tr>'
+    + '<tr><td>Annual precipitation</td><td class="num">'
+    + rng(e.precip_annual_mm, 'mm') + '</td></tr>'
+    + '<tr><td>Elevation</td><td class="num">'
+    + rng(e.elevation_m, 'm') + '</td></tr></table>';
+  if(e.monthly_temp_c && e.monthly_temp_c.length && e.months)
+    h+=envChart(e.monthly_temp_c, e.monthly_precip_mm || [], e.months);
+  h+='<div class="note mono">sampled ' + e.points_sampled
+    + ' record locations</div>'
+    + '<div class="cite">' + esc(e.method) + '</div>'
+    + '<div class="cite">' + esc(e.note) + '</div>';
+  return h;
+}
+
+function renderNewSections(d, withFactsheet){
+  if(withFactsheet){
+    document.getElementById('factsheet').innerHTML = factsheetHTML(d.factsheet);
+    setCount('cnt-fact', d.factsheet && d.factsheet.available
+      ? (d.factsheet.synonyms_total || 0) + ' backbone synonyms'
+      : 'n/a');
+  }
+  const p=d.patterns || {};
+  document.getElementById('phenology').innerHTML = phenologyHTML(p.phenology);
+  setCount('cnt-phen', p.phenology
+    ? MONTHNAMES[p.phenology.peak_month-1] + ' peak' : 'n/a');
+  window.__rangeShift = d.rangeshift || null;
+  document.getElementById('rangeshift').innerHTML = rangeShiftHTML(d.rangeshift);
+  setCount('cnt-shift', d.rangeshift && d.rangeshift.available
+    ? d.rangeshift.shift.centroid_km.toLocaleString() + ' km shift'
+    : 'n/a');
+  document.getElementById('trend').innerHTML = trendHTML(p.trend);
+  setCount('cnt-trend', p.trend ? p.trend.series.length + ' years' : 'n/a');
+  document.getElementById('envelope').innerHTML = envelopeHTML(d.envelope);
+  setCount('cnt-env', d.envelope && d.envelope.available
+    ? d.envelope.points_sampled + ' points' : 'n/a');
+}
+
+function clearPeriodLayers(){
+  ['per-a','per-b'].forEach(id=>{
+    try{ if(map.getLayer(id)) map.removeLayer(id); }catch(e){}
+    try{ if(map.getSource(id)) map.removeSource(id); }catch(e){}
+  });
+  ['occ-pt-fill','occ-pt-stroke','clusters','cluster-count'].forEach(id=>{
+    try{ if(map.getLayer(id)) map.setLayoutProperty(id,'visibility','visible'); }
+    catch(e){}
+  });
+}
+
+function coordsOk(c){
+  const lon=Number(c[0]), lat=Number(c[1]);
+  return isFinite(lat) && isFinite(lon)
+    && Math.abs(lat)<=90 && Math.abs(lon)<=180;
+}
+
+function point(c, col){
+  return {type:'Feature',
+    geometry:{type:'Point', coordinates:[Number(c[0]), Number(c[1])]},
+    properties:{color: col}};
+}
+
+function togglePeriodOverlay(){
+  if(!mapReady || !window.__rangeShift || !window.__rangeShift.available) return;
+  const btn=document.getElementById('btn-periods');
+  if(map.getLayer && map.getLayer('per-a')){
+    clearPeriodLayers();
+    if(btn) btn.textContent='Overlay periods on map';
+    return;
+  }
+  const rs=window.__rangeShift;
+  // prefer the exact coordinates the shift was computed from — the map
+  // sample is newest-first and may hold no records in either period
+  const feats=[];
+  const pts=rs.points || null;
+  if(pts && ((pts.a||[]).length || (pts.b||[]).length)){
+    (pts.a||[]).forEach(c=>{
+      if(coordsOk(c)) feats.push(point(c,'#1D5FA8'));
+    });
+    (pts.b||[]).forEach(c=>{
+      if(coordsOk(c)) feats.push(point(c,'#75530F'));
+    });
+  }else{
+    const gj=(window.__bundle && window.__bundle.geojson
+              && window.__bundle.geojson.features) || null;
+    const recs=(window.__bundle && window.__bundle.records
+                && window.__bundle.records.analysed) || null;
+    const src = gj || (recs||[]).map(r=>({
+      geometry:{type:'Point', coordinates:[r.decimalLongitude, r.decimalLatitude]},
+      properties:{year:r.year}
+    }));
+    src.forEach(f=>{
+      const g=f.geometry;
+      if(!g || !g.coordinates) return;
+      if(!coordsOk(g.coordinates)) return;
+      const y=(f.properties && f.properties.year!=null)
+        ? Number(f.properties.year) : null;
+      if(y==null) return;
+      const inB = y>=rs.period_b.year_min && y<=rs.period_b.year_max;
+      const inA = y>=rs.period_a.year_min && y<=rs.period_a.year_max;
+      if(!inA && !inB) return;
+      feats.push(point(g.coordinates, inB ? '#75530F' : '#1D5FA8'));
+    });
+  }
+  if(!feats.length) return;
+  clearPeriodLayers();
+  ['occ-pt-fill','occ-pt-stroke','clusters','cluster-count'].forEach(id=>{
+    try{ if(map.getLayer(id)) map.setLayoutProperty(id,'visibility','none'); }
+    catch(e){}
+  });
+  ['per-a','per-b'].forEach((id, idx)=>{
+    const col = idx===0 ? '#1D5FA8' : '#75530F';
+    const data={type:'FeatureCollection',
+      features:feats.filter(f=>f.properties.color===col)};
+    if(!data.features.length) return;
+    try{ if(map.getLayer(id)) map.removeLayer(id); }catch(e){}
+    try{ if(map.getSource(id)) map.removeSource(id); }catch(e){}
+    map.addSource(id, {type:'geojson', data:data});
+    map.addLayer({id:id, type:'circle', source:id, paint:{
+      'circle-radius':6.5, 'circle-color':col, 'circle-opacity':0.9,
+      'circle-stroke-width':1, 'circle-stroke-color':'rgba(255,255,255,.85)'
+    }});
+  });
+  if(btn) btn.textContent='Show BDQ verdict points';
+}
+
+function recipeSlug(){
+  return (document.getElementById('species').value.trim()
+    .replace(/\s+/g, '_') || 'analysis');
+}
+
+function qStr(v){
+  return "'" + String(v==null ? '' : v)
+    .replace(/\\/g, '\\\\').replace(/'/g, "\\'") + "'";
+}
+
+function buildScript(lang){
+  const b=window.__bundle || {};
+  const q=b.query || {};
+  const sp=q.species || document.getElementById('species').value.trim();
+  const yr=qStr((q.year_from || 1900) + ',' + (q.year_to || 2026));
+  const lim=q.limit || 500;
+  const basis=(q.basis && q.basis!=='All')
+    ? '  basisOfRecord = ' + qStr(q.basis) + ',' : '';
+  const head=[
+    '# BioSift recipe — regenerate the analysis for ' + sp,
+    '# ' + (b.scores ? b.scores.records_analysed : '') + ' records, years '
+      + (q.year_from || '') + '-' + (q.year_to || '') + ', basis '
+      + (q.basis || 'All'),
+    '# Generated ' + (b.generated_utc || new Date().toISOString())
+      + ' from the BioSift analysis bundle.', ''
+  ];
+  if(lang==='r'){
+    return head.concat([
+      'library(rgbif)',
+      '',
+      'occ <- occ_search(',
+      '  scientificName = ' + qStr(sp) + ',',
+      '  year = ' + yr + ',',
+      basis,
+      '  limit = ' + lim + ',',
+      '  hasCoordinate = TRUE',
+      ')',
+      '',
+      '# Quality: rerun the checks BioSift reported (TDWG BDQ vocabulary',
+      '# plus CoordinateCleaner-style geography, Zizka et al. 2019):',
+      '# install.packages("CoordinateCleaner")',
+      '# cc <- clean_coordinates(occ$data, lon = "decimalLongitude",',
+      '#   lat = "decimalLatitude", species = "species",',
+      '#   country = "countryCode")',
+      '',
+      '# Citation: GBIF data must be cited with a download DOI.',
+      '# Register once at https://www.gbif.org, then:',
+      '#   key <- occ_download(...)',
+      '#   gbif_citation(occ_download_meta(key))'
+    ]).filter(l=>l!==undefined).join('\n');
+  }
+  return head.concat([
+    '# BioSift recipe (pygbif): pip install pygbif pandas',
+    'from pygbif import occurrences as occ',
+    '',
+    'data = occ.search(',
+    '    scientificName=' + qStr(sp) + ',',
+    '    year=' + yr + ',',
+    basis ? '    basisOfRecord=' + qStr(q.basis) + ',' : '',
+    '    limit=' + lim + ',',
+    '    hasCoordinate=True,',
+    ')',
+    'df = occ.gbif_to_df(data)',
+    '',
+    '# Quality: the checks BioSift reported (TDWG BDQ +',
+    '# CoordinateCleaner-style geography, Zizka et al. 2019).',
+    '# Cite the data with a GBIF download DOI (gbif.org → download).'
+  ]).filter(l=>l!==undefined).join('\n');
+}
+
 function render(d){
   document.getElementById('results').style.display='block';
   document.getElementById('exports').style.display='block';
@@ -1043,6 +1438,7 @@ function render(d){
   document.getElementById('patterns').innerHTML = patternsHTML(d.patterns);
   const figs=document.querySelectorAll('#patterns svg, #patterns .bars').length;
   setCount('cnt-patterns', figs? figs+' figures' : 'none');
+  renderNewSections(d, true);
 
   document.getElementById('kba').innerHTML = kbaHTML(d);
 
@@ -1253,6 +1649,22 @@ document.getElementById('exp-flagged').addEventListener('click',
   ()=>byodExport('flagged'));
 document.getElementById('exp-clean').addEventListener('click',
   ()=>byodExport('clean'));
+
+document.getElementById('exp-r').addEventListener('click', ()=>{
+  if(!window.__bundle) return;
+  download('biosift_recipe_'+recipeSlug()+'.R', 'text/plain',
+    buildScript('r'));
+});
+document.getElementById('exp-py').addEventListener('click', ()=>{
+  if(!window.__bundle) return;
+  download('biosift_recipe_'+recipeSlug()+'.py', 'text/plain',
+    buildScript('py'));
+});
+// the overlay button is re-rendered inside #rangeshift, so delegate
+// from the stable container instead of the button itself
+document.getElementById('rangeshift').addEventListener('click', e=>{
+  if(e.target && e.target.id==='btn-periods') togglePeriodOverlay();
+});
 
 async function inspectFile(){
   if(!byodFile){
@@ -1573,6 +1985,7 @@ function renderByod(d){
   document.getElementById('patterns').innerHTML = patternsHTML(d.patterns);
   const figs=document.querySelectorAll('#patterns svg, #patterns .bars').length;
   setCount('cnt-patterns', figs? figs+' figures' : 'none');
+  renderNewSections(d, false);
 
   document.getElementById('cites').innerHTML =
     'Method: '+d.standards.quality_tests;

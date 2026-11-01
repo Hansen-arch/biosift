@@ -763,6 +763,16 @@ def analyze_uploaded(df_raw: pd.DataFrame, mapping: dict | None = None,
             outliers = None
 
     temporal = get_temporal_stats(df)
+
+    # range-shift + climate envelope run in parallel (network-bound)
+    from concurrent.futures import ThreadPoolExecutor as _TPE
+    from standalone.rangeshift import range_shift as _range_shift
+    from standalone.envelope import climate_envelope as _climate_envelope
+    with _TPE(max_workers=2) as _ex:
+        f_shift = _ex.submit(_range_shift, df)
+        f_env = _ex.submit(_climate_envelope, df)
+        rangeshift = f_shift.result()
+        envelope = f_env.result()
     gaps = None
     if "country" in df:
         from utils.gaps import get_gap_stats
@@ -805,6 +815,8 @@ def analyze_uploaded(df_raw: pd.DataFrame, mapping: dict | None = None,
         "distribution_kba": dist,
         "outliers": outliers,
         "temporal": temporal,
+        "rangeshift": rangeshift,
+        "envelope": envelope,
         "gaps": gaps,
         "name_verification": {
             "total_unique": len(uniq) if "species" in df else 0,

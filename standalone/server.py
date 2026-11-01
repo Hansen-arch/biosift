@@ -27,6 +27,8 @@ sys.path.insert(
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from concurrent.futures import ThreadPoolExecutor
+
 from fastapi import FastAPI, HTTPException, Query, UploadFile, File, Form
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -53,6 +55,10 @@ from utils.cooccurrence import (
 from utils.maps import build_map
 from utils.charts import get_temporal_stats
 from standalone.patterns import build_patterns
+from standalone.rangeshift import range_shift, compare_periods
+from standalone.envelope import climate_envelope
+from standalone.factsheet import species_factsheet
+from standalone.timeseries import year_probes, effort_trend
 
 app = FastAPI(
     title="BioSift Standalone API",
@@ -174,6 +180,44 @@ def analysis(
     )
     temporal = get_temporal_stats(df)
     completeness = get_completeness_score(df)
+
+    # species-analysis block: taxonomy factsheet, climate envelope,
+    # range-shift comparison and the time probes all run in parallel
+    # (network-bound); the probes carry the history a newest-first
+    # page cannot: per-year counts, effort facets and period samples.
+    def _safe_probes():
+        try:
+            return year_probes(species, year_from, year_to, basis)
+        except Exception:
+            return [], {}, None
+
+    with ThreadPoolExecutor(max_workers=4) as ex:
+        f_fact = ex.submit(species_factsheet, species)
+        f_env = ex.submit(climate_envelope, df)
+        f_shift = ex.submit(range_shift, df)
+        f_probes = ex.submit(_safe_probes)
+        factsheet = f_fact.result()
+        envelope = f_env.result()
+        rangeshift = f_shift.result()
+        probes, hist, periods = f_probes.result()
+
+    if not (rangeshift or {}).get("available") and periods:
+        try:
+            rs2 = compare_periods(periods["early"], periods["late"])
+            if rs2.get("available"):
+                rs2["targeted"] = periods["disc"]
+                rangeshift = rs2
+        except Exception:
+            pass
+
+    patterns = build_patterns(df, flags)
+    if probes:
+        try:
+            tr = effort_trend(probes)
+            if tr:
+                patterns["trend"] = tr
+        except Exception:
+            pass
     interactions = fetch_interactions(species)
     i_by_type, i_partners = summarize_interactions(interactions)
 
@@ -233,13 +277,20 @@ def analysis(
         "sdm_readiness": fit,
         "distribution_kba": dist,
         "temporal": temporal,
-        "year_counts": (
+        "factsheet": factsheet,
+        "rangeshift": rangeshift,
+        "envelope": envelope,        "year_counts": (
+            # population curve when the facet histogram is available —
+            # a newest-first sample would show a single spike year
+            [{"year": int(y), "count": int(c)}
+             for y, c in hist.items()]
+            if hist else
             [
-                {"year": int(r["year"]), "count": int(r["count"])}
-                for _, r in df[df["year"].notna()]
-                .assign(year=lambda x: x["year"].astype(int))
-                .groupby("year").size().reset_index(name="count")
-                .iterrows()
+            {"year": int(r["year"]), "count": int(r["count"])}
+            for _, r in df[df["year"].notna()]
+            .assign(year=lambda x: x["year"].astype(int))
+            .groupby("year").size().reset_index(name="count")
+            .iterrows()
             ] or None
         ),
         "interactions": {
@@ -256,7 +307,7 @@ def analysis(
         },
         "carbon": carbon,
         "precision_stats": get_precision_stats(df),
-        "patterns": build_patterns(df, flags),
+        "patterns": patterns,
         "multimedia": get_multimedia_stats(df),
         "records": (
             {"analysed": _clean_records(df, flags),

@@ -258,6 +258,87 @@ def categorical(df: pd.DataFrame, flags: pd.DataFrame) -> dict:
     return out
 
 
+def phenology(df: pd.DataFrame) -> dict | None:
+    """Month-of-year activity profile from record dates.
+
+    Uses the month column when present, otherwise parses eventDate.
+    Disclosed as a recording-activity profile, not animal activity.
+    """
+    m = None
+    if "month" in df.columns:
+        m = pd.to_numeric(df["month"], errors="coerce")
+    if m is None or m.notna().sum() < 10:
+        if "eventDate" in df.columns:
+            m = pd.to_datetime(df["eventDate"], errors="coerce",
+                               format="mixed").dt.month
+    if m is None or m.notna().sum() < 10:
+        return None
+    m = m[(m >= 1) & (m <= 12)]
+    if len(m) < 10:
+        return None
+    counts = [int((m == i).sum()) for i in range(1, 13)]
+    total = sum(counts)
+    peak = max(range(12), key=lambda i: counts[i]) + 1
+    return {
+        "counts": counts,
+        "total": int(total),
+        "peak_month": peak,
+        "peak_pct": round(counts[peak - 1] / total * 100, 1) if total else 0.0,
+        "method": (
+            "Share of dated records by month of year. Reads recording "
+            "activity (survey effort and season), not animal activity — "
+            "survey timing drives most of the pattern."
+        ),
+    }
+
+
+def reporting_trend(df: pd.DataFrame) -> dict | None:
+    """Effort-aware reporting index over years.
+
+    Raw counts per year mix observation with effort, so the index is
+    records per reporting dataset, normalised to its own median
+    (100 = long-term median). A reporting-rate proxy, never an
+    abundance trend — and labelled that way in the UI.
+    """
+    if "year" not in df.columns:
+        return None
+    y = pd.to_numeric(df["year"], errors="coerce")
+    ok = y.notna() & (y >= 1970) & (y <= 2100)
+    if ok.sum() < 30:
+        ok = y.notna() & (y >= 1700) & (y <= 2100)
+    if ok.sum() < 30:
+        return None
+    d = pd.DataFrame({"year": y[ok].astype(int)})
+    if "datasetName" in df.columns:
+        d["dataset"] = df["datasetName"].fillna("(unknown)")
+    else:
+        d["dataset"] = "(unknown)"
+    g = d.groupby("year").agg(records=("year", "size"),
+                              datasets=("dataset", "nunique"))
+    g = g[g["records"] >= 5]
+    if len(g) < 5:
+        return None
+    rate = g["records"] / g["datasets"].clip(lower=1)
+    base = float(rate.median()) or 1.0
+    idx = (rate / base * 100).round(1)
+    rows = [{"year": int(i), "records": int(g.at[i, "records"]),
+             "datasets": int(g.at[i, "datasets"]),
+             "index": float(idx.at[i])} for i in g.index]
+    rows = rows[-40:]
+    return {
+        "series": rows,
+        "method": (
+            "Index = records per reporting dataset, median = 100. "
+            "The dataset count is the effort control: a year where more "
+            "datasets report is not counted as a rise."
+        ),
+        "caveat": (
+            "Reporting rate, not abundance or occupancy — use it to "
+            "judge whether a count change is coverage."
+        ),
+    }
+
+
 def build_patterns(df: pd.DataFrame, flags: pd.DataFrame) -> dict:
     """Build every figure, isolating failures per figure."""
     out = {}
@@ -267,6 +348,8 @@ def build_patterns(df: pd.DataFrame, flags: pd.DataFrame) -> dict:
         ("decades", lambda: decades(df, flags)),
         ("completeness_dist", lambda: completeness_dist(df)),
         ("categorical", lambda: categorical(df, flags)),
+        ("phenology", lambda: phenology(df)),
+        ("trend", lambda: reporting_trend(df)),
     ):
         try:
             out[key] = fn()
