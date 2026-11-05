@@ -88,7 +88,7 @@ def render():
             f"That will be slow; 200 or fewer recommended."
         )
 
-    if st.button("Compare Species", type="primary", use_container_width=True):
+    if st.button("Compare Species", type="primary", width="stretch"):
         _run_batch(parse_species_list(batch_input), int(batch_year_from),
                    int(batch_year_to), batch_limit)
 

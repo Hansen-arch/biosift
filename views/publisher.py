@@ -22,7 +22,7 @@ def render():
         placeholder="e.g. iNaturalist, NHM London, Senckenberg",
     )
 
-    if st.button("Get Report Card", type="primary", use_container_width=True):
+    if st.button("Get Report Card", type="primary", width="stretch"):
         if not publisher_input.strip():
             st.warning("Please enter a publisher or institution name.")
         else:

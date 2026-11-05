@@ -1,5 +1,6 @@
 from pygbif import occurrences as occ
 import pandas as pd
+import requests
 import streamlit as st
 import time
 
@@ -21,6 +22,73 @@ COLS = [
 
 MAX_PER_REQUEST = 300
 
+COUNTRY_API = "https://api.gbif.org/v1/enumeration/country"
+
+# Used only when the enumeration endpoint is unreachable, so a country
+# filter never disappears silently. Deliberately short: a stale or partial
+# list would be worse than a visible fallback.
+COUNTRY_FALLBACK = [
+    ("AR", "Argentina"), ("AU", "Australia"), ("AT", "Austria"),
+    ("BE", "Belgium"), ("BR", "Brazil"), ("CA", "Canada"),
+    ("CL", "Chile"), ("CN", "China"), ("CO", "Colombia"),
+    ("CR", "Costa Rica"), ("DK", "Denmark"), ("EC", "Ecuador"),
+    ("EG", "Egypt"), ("FI", "Finland"), ("FR", "France"),
+    ("DE", "Germany"), ("GH", "Ghana"), ("GR", "Greece"),
+    ("IN", "India"), ("ID", "Indonesia"), ("IE", "Ireland"),
+    ("IL", "Israel"), ("IT", "Italy"), ("JP", "Japan"),
+    ("KE", "Kenya"), ("MG", "Madagascar"), ("MY", "Malaysia"),
+    ("MX", "Mexico"), ("MA", "Morocco"), ("NP", "Nepal"),
+    ("NL", "Netherlands"), ("NZ", "New Zealand"), ("NG", "Nigeria"),
+    ("NO", "Norway"), ("PE", "Peru"), ("PH", "Philippines"),
+    ("PL", "Poland"), ("PT", "Portugal"), ("ZA", "South Africa"),
+    ("ES", "Spain"), ("SE", "Sweden"), ("CH", "Switzerland"),
+    ("TZ", "Tanzania"), ("TH", "Thailand"), ("TR", "Turkey"),
+    ("UG", "Uganda"), ("GB", "United Kingdom"), ("US", "United States"),
+    ("VN", "Vietnam"), ("ZW", "Zimbabwe"),
+]
+
+
+@st.cache_data(ttl=86400, show_spinner=False)
+def fetch_countries():
+    """ISO-2 country list from GBIF, for filtering records by country.
+
+    Returns (countries, source) where countries is a sorted list of
+    {"code", "name"} dicts and source is "gbif" or "fallback". The
+    fallback exists so the country filter degrades visibly rather than
+    vanishing when the enumeration endpoint is down.
+    """
+    try:
+        r = requests.get(COUNTRY_API, timeout=20)
+        r.raise_for_status()
+        rows = [
+            {"code": c["iso2"],
+             "name": (c.get("title") or c["iso2"]).strip()}
+            for c in r.json()
+            if c.get("iso2")
+        ]
+        if len(rows) > 100:
+            return sorted(rows, key=lambda c: c["name"]), "gbif"
+    except Exception:
+        pass
+    rows = [{"code": code, "name": name} for code, name in COUNTRY_FALLBACK]
+    return sorted(rows, key=lambda c: c["name"]), "fallback"
+
+
+def country_options(countries):
+    """Label list for a selectbox, with the code in parentheses."""
+    return ["All countries"] + [f"{c['name']} ({c['code']})"
+                                for c in countries]
+
+
+def country_code_from_label(label, countries):
+    """Inverse of country_options: label -> ISO-2 code (None for All)."""
+    if not label or label == "All countries":
+        return None
+    for c in countries:
+        if label == f"{c['name']} ({c['code']})":
+            return c["code"]
+    return None
+
 @st.cache_data(ttl=3600)
 def fetch_occurrences(
     species_name,
@@ -28,7 +96,7 @@ def fetch_occurrences(
     year_from    = None,
     year_to      = None,
     country_code = None,
-    basis        = None
+    basis        = None,
 ):
     try:
         all_results = []

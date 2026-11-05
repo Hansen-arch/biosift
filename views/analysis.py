@@ -8,7 +8,10 @@ import requests
 
 import utils.theme as T
 from utils.theme import C
-from utils.gbif_fetch import fetch_occurrences, SAMPLE_SPECIES
+from utils.gbif_fetch import (
+    fetch_occurrences, SAMPLE_SPECIES,
+    fetch_countries, country_options, country_code_from_label,
+)
 from utils.species_info import get_species_info, iucn_chip
 from utils.quality import (
     run_quality_checks, quality_summary, get_precision_stats,
@@ -77,6 +80,7 @@ def clear_results():
         "df", "total", "species", "flags", "summary", "outliers",
         "reliability", "species_info", "multimedia", "completeness",
         "pop_stats", "year_from", "year_to", "basis_filter", "limit",
+        "country_code", "country_label",
     ]:
         st.session_state.pop(key, None)
 
@@ -126,6 +130,18 @@ def render():
          "MACHINE_OBSERVATION", "LIVING_SPECIMEN", "LITERATURE",
          "FOSSIL_SPECIMEN"],
     )
+
+    countries, country_source = fetch_countries()
+    country_label = st.selectbox(
+        "Country", country_options(countries),
+        help="Restrict the analysis to records GBIF attributes to one "
+             "country. Leave on All to analyse the global dataset.",
+    )
+    country_code = country_code_from_label(country_label, countries)
+    if country_source == "fallback":
+        st.caption("Country list is the built-in short list — GBIF's "
+                   "country enumeration is unreachable right now.")
+
     limit = st.slider("Max records", 100, 10000, 500, step=100)
 
     map_type = st.radio(
@@ -140,9 +156,9 @@ def render():
     )
 
     run_btn = st.button("Run Analysis", type="primary",
-                        use_container_width=True)
+                        width="stretch")
     if "df" in st.session_state:
-        if st.button("Clear Results", use_container_width=True):
+        if st.button("Clear Results", width="stretch"):
             clear_results()
             st.rerun()
 
@@ -151,7 +167,8 @@ def render():
             st.warning("Please enter a scientific name or select a sample.")
         else:
             _run_analysis(species_input, int(year_from), int(year_to),
-                          basis_filter, limit, basemap_name)
+                          basis_filter, limit, basemap_name,
+                          country_code, country_label)
 
     # ── results ────────────────────────────────────────────
     if "df" in st.session_state and st.session_state.get("species"):
@@ -159,13 +176,17 @@ def render():
 
 
 def _run_analysis(species_input, year_from, year_to, basis_filter, limit,
-                  basemap_name=None):
+                  basemap_name=None, country_code=None,
+                  country_label="All countries"):
     progress = st.progress(0, text="Connecting to GBIF…")
 
     try:
+        pre_params = {"scientificName": species_input, "limit": 1}
+        if country_code:
+            pre_params["country"] = country_code
         pre = requests.get(
             "https://api.gbif.org/v1/occurrence/search",
-            params={"scientificName": species_input, "limit": 1},
+            params=pre_params,
             timeout=10,
         ).json()
         if pre.get("count", 0) == 0:
@@ -181,6 +202,7 @@ def _run_analysis(species_input, year_from, year_to, basis_filter, limit,
     df, total, error = fetch_occurrences(
         species_name=species_input, limit=limit,
         year_from=year_from, year_to=year_to, basis=basis_filter,
+        country_code=country_code,
     )
     if error:
         progress.empty()
@@ -197,8 +219,11 @@ def _run_analysis(species_input, year_from, year_to, basis_filter, limit,
     reliability = compute_reliability_score(df)
 
     yr = f"{year_from},{year_to}"
+    # The benchmark must match the sample's scope, or a country-limited
+    # sample would be compared against the global defect rate.
     pop_stats = fetch_population_stats(
-        species_input, year_range=yr, basis=basis_filter
+        species_input, year_range=yr, basis=basis_filter,
+        country=country_code,
     )
 
     progress.progress(0.8, text="Fetching species info…")
@@ -223,6 +248,7 @@ def _run_analysis(species_input, year_from, year_to, basis_filter, limit,
         "genus_df": genus_df,
         "year_from": year_from, "year_to": year_to,
         "basis_filter": basis_filter, "limit": limit,
+        "country_code": country_code, "country_label": country_label,
     })
 
 
@@ -241,6 +267,9 @@ def _render_results():
     yr_from = st.session_state.get("year_from", 1900)
     yr_to = st.session_state.get("year_to", 2026)
     basis_used = st.session_state.get("basis_filter", "All")
+    country_used = st.session_state.get("country_code")
+    country_label_used = st.session_state.get("country_label",
+                                               "All countries")
     map_type = st.session_state.get("map_type", "Point Map")
 
     clean_df = df[~flags["any_flag"]].reset_index(drop=True)
@@ -251,7 +280,7 @@ def _render_results():
     hc = st.columns([1, 3])
     with hc[0]:
         if species_info and species_info.get("image_url"):
-            st.image(species_info["image_url"], use_container_width=True)
+            st.image(species_info["image_url"], width="stretch")
         else:
             st.markdown(
                 f'<div style="width:110px;height:110px;border-radius:14px;'
@@ -319,6 +348,8 @@ def _render_results():
         filter_parts.append(f"Year {yr_from}–{yr_to}")
     if basis_used != "All":
         filter_parts.append(f"Basis: {basis_used}")
+    if country_used:
+        filter_parts.append(f"Country: {country_label_used}")
     if filter_parts:
         st.info(
             f"Active filters: {' · '.join(filter_parts)}. "
@@ -1050,10 +1081,15 @@ def _tab_export(df, clean_df, flags, summary, score, species, reliability,
         "no_year": round(float(flags["missing_year"].mean() * 100), 1),
     }
     bench = build_benchmark(sample_stats, pop_stats) if pop_stats else []
+    country_used = st.session_state.get("country_code")
+    country_label_used = st.session_state.get("country_label",
+                                               "All countries")
     filters = {
         "year_from": yr_from, "year_to": yr_to,
         "year_range": f"{yr_from}–{yr_to}" if (yr_from != 1900 or yr_to != 2026) else "all years",
         "basis": basis_used, "limit": len(df), "gbif_total": int(total),
+        "country": country_label_used if country_used else "all countries",
+        "country_code": country_used,
     }
 
     # ── fitness + interactions for exports ────────────────
@@ -1076,7 +1112,7 @@ def _tab_export(df, clean_df, flags, summary, score, species, reliability,
                 file_name=f"biosift_{species.replace(' ', '_')}_pack.zip",
                 mime="application/zip",
                 type="primary",
-                use_container_width=True,
+                width="stretch",
             )
             st.caption(
                 "Report JSON · methods · citations · CSVs · DwC-A · recipe"
@@ -1097,7 +1133,7 @@ def _tab_export(df, clean_df, flags, summary, score, species, reliability,
                 data=pdf,
                 file_name=f"biosift_{species.replace(' ', '_')}_report.pdf",
                 mime="application/pdf",
-                use_container_width=True,
+                width="stretch",
             )
             st.caption("Branded summary for theses, DMPs and grants")
         else:
@@ -1106,14 +1142,15 @@ def _tab_export(df, clean_df, flags, summary, score, species, reliability,
     # ── GBIF data cube ─────────────────────────────────────
     with ec3:
         sql, payload = cube_exports(
-            species, yr_from, yr_to, basis_used, grid=10
+            species, yr_from, yr_to, basis_used, grid=10,
+            country=country_used,
         )
         st.download_button(
             "GBIF Data Cube (SQL)",
             data=sql,
             file_name=f"biosift_{species.replace(' ', '_')}_cube.sql",
             mime="text/plain",
-            use_container_width=True,
+            width="stretch",
         )
         st.caption("Indicator-grade cube for the GBIF SQL download service")
 
@@ -1143,14 +1180,14 @@ def _tab_export(df, clean_df, flags, summary, score, species, reliability,
             "Download Full Sample (CSV)",
             data=_export_df(df, score).to_csv(index=False).encode("utf-8"),
             file_name=f"biosift_{species.replace(' ', '_')}_full.csv",
-            mime="text/csv", use_container_width=True,
+            mime="text/csv", width="stretch",
         )
     with ecsv2:
         st.download_button(
             "Download Clean Records (CSV)",
             data=_export_df(clean_df, score).to_csv(index=False).encode("utf-8"),
             file_name=f"biosift_{species.replace(' ', '_')}_clean.csv",
-            mime="text/csv", use_container_width=True,
+            mime="text/csv", width="stretch",
         )
 
     # ── methods + citation ─────────────────────────────────
