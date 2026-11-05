@@ -27,9 +27,14 @@ LABELS = {
 
 
 @st.cache_data(ttl=3600)
-def fetch_population_stats(species_name, year_range=None, basis=None):
+def fetch_population_stats(species_name, year_range=None, basis=None,
+                           country=None):
     """
     Query GBIF over the FULL matching population.
+
+    `country` (ISO 3166-1 alpha-2) must be passed whenever the analysed
+    sample was country-limited: the baseline has to cover the same scope,
+    or the deltas compare a national sample with a global defect rate.
     Returns {"total": int, "no_coords": {"value","pct"}, ...} or {} on failure.
     """
     base = {"scientificName": species_name, "limit": 0}
@@ -37,6 +42,8 @@ def fetch_population_stats(species_name, year_range=None, basis=None):
         base["year"] = year_range
     if basis and basis != "All":
         base["basisOfRecord"] = basis
+    if country:
+        base["country"] = country
 
     def count(extra=None):
         params = dict(base)

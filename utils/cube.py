@@ -14,7 +14,7 @@ CUBE_DOC = "https://techdocs.gbif.org/en/data-use/data-cubes"
 
 
 def build_cube_sql(species, year_from=None, year_to=None, basis=None,
-                   grid=10):
+                   grid=10, country=None):
     """
     Return a GBIF SQL download query that produces a species x cell x year
     occurrence cube for the current analysis filters.
@@ -34,6 +34,8 @@ def build_cube_sql(species, year_from=None, year_to=None, basis=None,
         where.append(f"year BETWEEN {int(year_from)} AND {int(year_to)}")
     if basis and basis != "All":
         where.append(f"basisOfRecord = '{basis}'")
+    if country:
+        where.append(f"countryCode = '{country}'")
 
     sql = (
         "SELECT " + ", ".join(conds) + "\n"
@@ -50,7 +52,7 @@ def build_cube_sql(species, year_from=None, year_to=None, basis=None,
 
 
 def build_cube_payload(species, year_from=None, year_to=None, basis=None,
-                       grid=10):
+                       grid=10, country=None):
     """JSON payload mirroring build_cube_sql for scripted use."""
     where = {"species": species}
     if year_from and year_to:
@@ -59,6 +61,8 @@ def build_cube_payload(species, year_from=None, year_to=None, basis=None,
         }
     if basis and basis != "All":
         where["basisOfRecord"] = basis
+    if country:
+        where["countryCode"] = country
     return {
         "schema": "biosift.cube/1.0",
         "docs": SQL_DOC,
@@ -73,8 +77,10 @@ def build_cube_payload(species, year_from=None, year_to=None, basis=None,
     }
 
 
-def cube_exports(species, year_from=None, year_to=None, basis=None, grid=10):
+def cube_exports(species, year_from=None, year_to=None, basis=None, grid=10,
+                 country=None):
     """Convenience: returns (sql_text, json_payload_str)."""
-    payload = build_cube_payload(species, year_from, year_to, basis, grid)
-    sql = build_cube_sql(species, year_from, year_to, basis, grid)
+    payload = build_cube_payload(species, year_from, year_to, basis, grid,
+                                 country)
+    sql = build_cube_sql(species, year_from, year_to, basis, grid, country)
     return sql, json.dumps(payload, indent=2)

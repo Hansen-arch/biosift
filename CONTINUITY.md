@@ -1,13 +1,55 @@
 # BioSift — Project Continuity
 
 > Living document. Update after every milestone so any future session can
-> resume with full context. **Current version: v3.6** (2026-11-01).
+> resume with full context. **Current version: v3.7** (2026-11-05).
 
 ---
 
 ## ⏯ START HERE — next session
 
-### What BioSift is now (v3.6, all verified working)
+### What BioSift is now (v3.7, all verified working)
+
+**v3.7 — SiteSift folded in + country filtering (2026-11-05).** Site
+screening is no longer a separate app: `views/site.py` is a BioSift page
+("Site Screening", url_path `site`) over the unchanged engine in
+`sitesift/screening.py`, so the page and the optional `sitesift/server.py`
+API cannot drift. The page takes a boundary four ways — folium Draw
+(polygon/rectangle), bounding box, point + radius, or paste/upload — and
+boundary I/O is the new `utils/polygon.py` (GeoJSON incl. Feature/
+FeatureCollection/bare coordinates, KML, WKT with SRID, CSV with header
+or magnitude-inferred lat/lon order; exports GeoJSON/KML/WKT). Live check:
+4 km² central London, HUMAN_OBSERVATION, 2000–2026, GB → 6.3 s, no errors;
+5 result tables, 4 download buttons.
+
+The Draw map can also screen *what it is showing*: "Use current map view"
+turns the reported viewport into a bbox polygon (the standalone app's
+`useView()`). It stays disabled until `st_folium` reports bounds and says
+which case it is in — the opening whole-world view asks for a zoom-in, and
+a view that crosses the antimeridian is refused rather than silently
+becoming a 360° band. Provenance is kept in `ss_geometry_source`
+(`draw`/`view`/`input`) so a draw layer that reports no drawings does not
+erase an extent boundary. Browser-verified: London at zoom 13 → 64.6 km²,
+569,951 records inside; panning to the date line shows the refusal.
+
+Country filtering (`country=ISO2`) is applied at the query level, never as
+an inference: `screen()` gained a `country` argument (cache key includes
+it), the bundle gained a `COUNTRY` facet breakdown (`countries`,
+`countries_total`) and a caveat explaining that GBIF's country is
+*interpreted* — derived from coordinates when the publisher left it blank.
+Same filter added to Species Analysis (`utils/gbif_fetch.fetch_countries()`,
+251 countries from `/v1/enumeration/country`, 50-country fallback), and
+threaded through `fetch_population_stats(country=)` and
+`cube_exports(country=)` so the benchmark and the cube SQL keep the same
+scope as the sample; `filters` in the Reproducibility Pack records it.
+Measured: an Aachen border polygon (0.024°) holds 271,092 records split
+NL 170,329 / DE 94,906 / BE 5,854 — proof the filter earns its keep.
+Nine facets in one request take ~0.8 s.
+
+Verified: `utils/polygon.py` round-trips Polygon/MultiPolygon/circle
+through all four formats with identical areas, rejects points, one-vertex
+rings, swapped coordinates and unclosed rings with readable messages;
+AppTest ran both pages end-to-end (analysis with DE + HUMAN_OBSERVATION:
+41.6 s, 5 download buttons, no exceptions).
 
 **v3.6 — species analysis studio (2026-11-01).** The standalone app now
 answers the analysis questions the audit raised before it checked data:
@@ -26,6 +68,24 @@ newest-first page carries no history. Frontend gained three sections,
 seasonality + envelope + trend + year-curve charts, the period overlay,
 and R (`rgbif`) / Python script exports. Full UI audit: **ALL CHECKS
 PASSED** (both species, 4 viewports, BYOD, basemap switch).
+
+**SiteSift (2026-11-01, merged into BioSift 2026-11-05)** — originally a
+third, *separate* app in `sitesift/`, now the "Site Screening" page:
+site-level screening from open GBIF data. Draw a polygon → species
+recorded there, named CR/EN/VU species, native/introduced coverage,
+decade effort, GBIF issue profile, dataset attribution, and JSON + R/Python
+exports. The page imports `sitesift.screening` directly; the original
+standalone UI still runs with `uvicorn sitesift.server:app --port 8090`
+(audit: `scripts/ui_audit_sitesift.py`, 28 checks passed) and now also
+accepts `country` in its request body. It shares no code with `utils/` or
+`standalone/` on purpose, except the new `utils/polygon.py` boundary I/O
+used only by the page. It deliberately omits
+protected-area/KBA overlap (WDPA/WDPCA and WDKBA are licensed — Protected
+Planet returns 401 without a token, KBA download is a request form) and does
+not filter on establishmentMeans (present on only ~1.7–3% of records).
+Motivation: IBAT's free tier is a map, but report downloads are
+$750–1,500/site and its API starts at $35,000/yr — SiteSift is the free
+triage layer before that purchase, and openly says so. See `sitesift/README.md`.
 
 A biodiversity data-quality & distribution-intelligence platform over
 the public GBIF API — **and over the user's own data (BYOD)** — shipped
@@ -129,6 +189,15 @@ BIOSIFT_URL=http://localhost:8622 venv/bin/python scripts/ui_audit.py analysis
   because `facet=[...]` as a kwargs value raises. `limit=0` facet probes
   cost ~1 s versus ~7 s for a coordinate page. Concurrent coordinate
   pages get throttled — small pool (5) + retries.
+- **GBIF geometry / screening (SiteSift, verified live)**: a polygon query
+  needs **counter-clockwise exterior rings** — clockwise returns `400 Polygon
+  with clockwise exterior ring`. `geoDistance=lat,lon,km` is **broken** (10 km
+  radius → 64 records where the equivalent bbox → 2.9 M, and counts don't
+  scale with area); build a real polygon instead. Eight facets fit in one
+  request (~1.7 s). `iucnRedListCategory` filters records but takes **no
+  comma list** (`CR,EN,VU` → 0). `facetLimit` defaults to 10. Absence
+  records are included by default — filter `occurrenceStatus=PRESENT`.
+  `establishmentMeans` is sparse (~3%), so report coverage, never filter.
 - **Range-shift overlay (v3.6)**: never rebuild overlay points from the
   map sample's years. The 500-record sample is newest-first and can hold
   no records in either measured period (oak: periods 1900-1901 and

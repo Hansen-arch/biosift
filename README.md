@@ -171,6 +171,21 @@ the source.**
 - **GBIF data-cube SQL** — indicator-grade cube queries targeting the
   GBIF SQL download service used by EU B-Cubed pipelines
 
+### Site screening
+- Draw a boundary on the map, or **import one** as GeoJSON, KML, WKT or a
+  lat/lon CSV — or generate it from a bounding box or a point + radius;
+  **export** the boundary as GeoJSON, KML or WKT plus the screen as JSON
+- One screen reports species recorded inside, named CR/EN/VU species, full
+  IUCN composition, native/introduced *coverage*, decade effort,
+  seasonality, record-quality flags, dataset attribution and the country
+  each record is attributed to
+- **Country filter** on every GBIF query in both this page and Species
+  Analysis — including the benchmark baseline, the data-cube SQL and the
+  Reproducibility Pack recipe, so a national sample is never compared with
+  a global baseline
+- Clockwise rings, holes and multipolygons are handled; the same engine
+  (`sitesift/screening.py`) backs the page and the optional JSON API
+
 ### Batch Comparison & Publisher Report Card
 - Side-by-side quality comparison of up to five species
 - Institution-level report card for any GBIF publisher
@@ -189,7 +204,9 @@ the source.**
 | Use case | Interactive exploration | Automation, integration, self-hosting |
 
 Both use the same `utils/` science layer: identical checks, identical
-standards, identical verdicts.
+standards, identical verdicts. Site screening is not a third app: it is a
+BioSift page, with `sitesift/server.py` kept as an optional JSON surface
+over the same engine.
 
 ### Deploying the standalone app
 
@@ -282,7 +299,11 @@ utils/
   cube.py              # GBIF SQL data-cube exports
   quality.py           # the 10 quality checks
   gbif_fetch.py        # GBIF occurrence API client
+  polygon.py           # site boundary import/export (GeoJSON/KML/WKT/CSV)
   …                    # maps, charts, sdm, gaps, dwc, publisher, …
+sitesift/
+  screening.py         # site-screening engine (BioSift page + JSON API)
+  server.py            # optional FastAPI surface for the same engine
 ```
 
 ---

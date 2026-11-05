@@ -9,6 +9,7 @@ import utils.theme as T
 from views.home import render as home_render
 from views.analysis import render as analysis_render
 from views.batch import render as batch_render
+from views.site import render as site_render
 from views.publisher import render as publisher_render
 from views.methods import render as methods_render
 
@@ -28,6 +29,8 @@ pages = [
             url_path="analysis"),
     st.Page(batch_render,      title="Batch Comparison",    icon=":material/scale:",
             url_path="batch"),
+    st.Page(site_render,       title="Site Screening",      icon=":material/polyline:",
+            url_path="site"),
     st.Page(publisher_render,  title="Publisher Report",    icon=":material/account_balance:",
             url_path="publisher"),
     st.Page(methods_render,    title="Methods & Standards", icon=":material/straighten:",
