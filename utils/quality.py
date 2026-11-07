@@ -294,7 +294,7 @@ def _check_country_mismatch(df):
     Flag records where coordinates fall clearly outside the stated
     country's bounding box.
     Only checks records that have both coordinates AND a countryCode.
-    Uses approximate bounding boxes — not exact boundaries.
+    Uses approximate bounding boxes, not exact boundaries.
     """
     result = pd.Series(False, index=df.index)
 

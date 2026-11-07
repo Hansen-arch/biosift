@@ -3,13 +3,13 @@ Prediction: distribution metrics + KBA Criterion B screening
 ────────────────────────────────────────────────────────────
 Implements the two standard extent metrics from species distribution
 data, then screens them against the KBA Standard (IUCN 2016) Criterion B
-— with explicit caveats that this is a *screening tool*, not an
+- with explicit caveats that this is a *screening tool*, not an
 assessment (formal KBA designation requires Red List evaluation and
 stakeholder consultation).
 
 Metrics:
   - EOO (Extent of Occurrence): minimum convex hull area (deg² → km²,
-    cos-corrected), per IUCN Guidelines 4.0 — with the
+    cos-corrected), per IUCN Guidelines 4.0, with the
     cosmopolitan-artefact caveat (Burgio 2021, Frontiers Ecol Evol;
     hulled EOO can overstate range for outlying/vagrant records).
   - AOO (Area of Occupancy): 2×2 km occupancy grid per IUCN Standard 4.0.
@@ -29,7 +29,7 @@ CAVEAT = (
     "Screening indicator only. Formal KBA assessment (IUCN 2016) "
     "requires confirmed Red List status, stakeholder consultation, and "
     "the 'site contributes significantly to global persistence' test. "
-    "BioSift flags candidates — it does not designate sites."
+    "BioSift flags candidates, it does not designate sites."
 )
 
 CITATIONS = {
@@ -38,7 +38,7 @@ CITATIONS = {
         "Biodiversity Areas, Version 1.0. Gland, Switzerland: IUCN."
     ),
     "iucn_guidelines": (
-        "IUCN Red List Categories and Criteria, Version 14 (2024) — "
+        "IUCN Red List Categories and Criteria, Version 14 (2024), "
         "EOO/AOO calculation guidance (Guidelines 4.0)."
     ),
     "burgio": (
@@ -93,7 +93,7 @@ def convex_hull_points(lat, lon):
     hull = lower[:-1] + upper[:-1]
 
     if len(hull) < 3:
-        return [], 0.0, ["degenerate hull — fewer than 3 extreme points"]
+        return [], 0.0, ["degenerate hull, fewer than 3 extreme points"]
 
     # shoelace area in km²
     area = 0.0
@@ -106,7 +106,7 @@ def convex_hull_points(lat, lon):
 
     if area_km2 > 20_000_000:
         warnings.append(
-            "hull exceeds Earth's land area — likely cosmopolitan or "
+            "hull exceeds Earth's land area, likely cosmopolitan or "
             "erroneous outliers (Burgio 2021 caveat)"
         )
 

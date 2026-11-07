@@ -1,4 +1,4 @@
-# BioSift Standalone — production image
+# BioSift Standalone, production image
 FROM python:3.12-slim
 
 WORKDIR /app

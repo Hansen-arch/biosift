@@ -1,4 +1,4 @@
-# BioSift DESIGN.md — direction for UI work
+# BioSift DESIGN.md, direction for UI work
 
 > Reading this as: a biodiversity data-quality workbench for researchers
 > and GBIF node staff, in a light scholarly ledger style (a methods

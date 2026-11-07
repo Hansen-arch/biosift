@@ -11,23 +11,23 @@
 
 ## Live demo
 
-**[biosift-gbif.streamlit.app](https://biosift-gbif.streamlit.app)** — no
+**[biosift-gbif.streamlit.app](https://biosift-gbif.streamlit.app)**, no
 installation required.
 
 ---
 
 ## What is BioSift?
 
-BioSift audits the quality of GBIF occurrence data — **or your own
-uploaded datasets** — in seconds and turns the result into evidence a
+BioSift audits the quality of GBIF occurrence data, **or your own
+uploaded datasets**, in seconds and turns the result into evidence a
 reviewer can trust: a standards-aligned quality audit, a benchmark
 against the full GBIF population, and one-click export of a
 Reproducibility Pack, PDF report, Darwin Core Archive, GBIF data-cube
-SQL — and, for your own data, a cleaned copy of your file with every
+SQL, and, for your own data, a cleaned copy of your file with every
 verdict appended.
 
 Instead of manually inspecting raw datasets, users get immediate, *
-standardised* diagnostics — communicated in the TDWG Biodiversity Data
+standardised* diagnostics, communicated in the TDWG Biodiversity Data
 Quality (BDQ) vocabulary the global community already uses.
 
 ---
@@ -35,8 +35,8 @@ Quality (BDQ) vocabulary the global community already uses.
 ## Why does this matter?
 
 GBIF aggregates hundreds of millions of occurrence records from thousands of
-publishers. Quality issues — missing or zero coordinates, country/coordinate
-mismatches, duplicates, low precision, temporal gaps — propagate directly
+publishers. Quality issues, missing or zero coordinates, country/coordinate
+mismatches, duplicates, low precision, temporal gaps, propagate directly
 into species distribution models, red-list assessments and policy
 indicators.
 
@@ -61,24 +61,24 @@ the source.**
 ## Features
 
 ### Bring your own data (standalone app)
-- **Upload a CSV, TSV, Excel file or Darwin Core Archive** — everything is
+- **Upload a CSV, TSV, Excel file or Darwin Core Archive**, everything is
   processed in-session, nothing is stored
 - Smart column mapping: Darwin Core terms, common aliases and fuzzy
   matching are proposed automatically; confirm or adjust in an editable
   mapping table with per-column fill statistics and a sample preview
 - **17 automated checks**: the TDWG BDQ-mapped core suite plus
-  CoordinateCleaner-style geographic tests (Zizka et al. 2019) —
+  CoordinateCleaner-style geographic tests (Zizka et al. 2019) -
   coordinate swaps, capital-city proximity, coordinate edges, future
   dates, implausible names, identical lat/lon, degree–minute conversion
   errors, rasterized-coordinate detection and repeated-coordinate
   hotspots
 - **Fit-for-use profiles** (ALA-style): *General*, *SDM*
-  (mirrors Zizka et al. 2020 and the ALA CSDM profile) or *Report only* —
+  (mirrors Zizka et al. 2020 and the ALA CSDM profile) or *Report only* -
   every check is either fatal (record excluded) or advisory (reported,
   kept), and retention is disclosed
 - **Your data back, cleaned**: download your file with
   `biosift_flag` / `biosift_exclude` / `biosift_reasons` columns
-  appended, or only the rows passing the selected profile — plus GeoJSON
+  appended, or only the rows passing the selected profile, plus GeoJSON
   and the full analysis bundle
 - Taxon verification against the GBIF backbone, per-species quality
   breakdown, DBSCAN spatial outliers, dataset-level rounding diagnosis
@@ -87,25 +87,25 @@ the source.**
   profile-excluded), clustering and per-record popups
 
 ### Data patterns & correlations (both modes)
-- **Attribute correlation heatmap** — Pearson *r* between year, latitude,
+- **Attribute correlation heatmap**, Pearson *r* between year, latitude,
   longitude, coordinate uncertainty, coordinate precision, field
   completeness and the number of checks each record triggers (rows with
   too few complete pairs are left blank)
-- **Check co-occurrence heatmap** — Jaccard overlap between the quality
+- **Check co-occurrence heatmap**, Jaccard overlap between the quality
   checks that fired, showing which defects travel together
-- **Flag rate by decade, country and basis of record** — where in time
+- **Flag rate by decade, country and basis of record**, where in time
   and in which contributing streams the defects concentrate
-- **Record-completeness distribution** — how many of the ten scored
+- **Record-completeness distribution**, how many of the ten scored
   Darwin Core fields are populated per record
 - Drawn in-app as SVG and CSS bars (no charting library, no extra
   network requests) and included in the JSON bundle as `patterns`
 
 ### Species Analysis
 - **10 automated quality checks, each mapped to its official
-  [TDWG BDQ](https://github.com/tdwg/bdq) test** — the community-standard
+  [TDWG BDQ](https://github.com/tdwg/bdq) test**, the community-standard
   vocabulary for biodiversity data quality
 - Data health score + record completeness score with visual scoring
-- **GBIF-wide benchmarking** — defect rates compared live against the full
+- **GBIF-wide benchmarking**, defect rates compared live against the full
   GBIF population matching the same species + filters
 - **IUCN Red List category** displayed on the species card
 - Per-record reliability scores, data fitness-for-use badges, coordinate
@@ -113,33 +113,33 @@ the source.**
 - Per-contributing-dataset quality breakdown with A–F grades
 
 ### Species analysis studio (standalone app)
-- **Species factsheet** — taxonomy, synonyms, vernacular names, habitat
+- **Species factsheet**, taxonomy, synonyms, vernacular names, habitat
   description and IUCN status, assembled from the GBIF backbone
-- **Change over time (range shift)** — compares an early with a late
+- **Change over time (range shift)**, compares an early with a late
   period: record counts, centroid, 5–95th percentile extent, occupied
   1° cells and grid-cell turnover (Jaccard), plus centroid displacement
   in km with its north/south direction. The sampling caveat ships with
   the number: a shift in *recorded* extent also carries effort and
   observer geography
-- **Period overlay on the map** — the exact points the shift was
+- **Period overlay on the map**, the exact points the shift was
   computed from, early period blue and late period amber, toggleable on
   and off
-- **Climate envelope** — annual temperature, precipitation and elevation
+- **Climate envelope**, annual temperature, precipitation and elevation
   sampled at up to 24 record locations via NASA POWER (key-free), with
   monthly median curves; a descriptive envelope of where records sit,
   not a fitted niche model
-- **Seasonality** — records by month with the peak month named
-- **Effort-aware reporting trend** — records per distinct recorder per
+- **Seasonality**, records by month with the peak month named
+- **Effort-aware reporting trend**, records per distinct recorder per
   year, indexed to its own median and labelled a reporting-rate proxy,
   never an abundance estimate
-- **Reproducible scripts** — one-click R (`rgbif`) and Python exports
+- **Reproducible scripts**, one-click R (`rgbif`) and Python exports
   that regenerate the exact query, alongside the JSON bundle
 - Time-aware sampling: a newest-first GBIF page holds no history, so
   per-year counts, effort facets and the earliest/latest coordinate
   samples are probed separately
 
 ### Species interactions (GloBI)
-- Live query of [GloBI](https://globalbioticinteractions.org) — predator–prey,
+- Live query of [GloBI](https://globalbioticinteractions.org), predator–prey,
   parasite–host, pollination, pathogen and symbiosis records for the
   analysed species, with direction normalisation and source citations
 - Artefact-resistant: name-resolution failures in GloBI are filtered
@@ -148,7 +148,7 @@ the source.**
 ### SDM readiness audit
 - Journal-cited filter gates: Zizka et al. 2020 (*Ecography*),
   Marcer et al. 2022 (*Ecography*), GBIF Georeferencing Best Practice
-- Two disclosed strictness profiles — Standard (≤10 km coordinate
+- Two disclosed strictness profiles, Standard (≤10 km coordinate
   uncertainty) and Strict (≤1 km, publication-grade)
 - Verdict + retention + per-gate breakdown, including *why* records fail
   (e.g. stated uncertainty typical of citizen-science data)
@@ -162,25 +162,25 @@ the source.**
   detection, peak-year and major-gap insights, seasonal patterns
 
 ### Publication-grade exports
-- **Reproducibility Pack (ZIP)** — `biosift_report.json` (versioned
+- **Reproducibility Pack (ZIP)**, `biosift_report.json` (versioned
   machine-readable schema), paste-ready methods text, APA + BibTeX
   citations, full/clean CSVs, the standards-compliant DwC-A, and
   `recipe.json` containing the exact GBIF API requests to regenerate the
   sample
 - **Branded PDF quality report** for theses, DMPs and grant appendices
-- **GBIF data-cube SQL** — indicator-grade cube queries targeting the
+- **GBIF data-cube SQL**, indicator-grade cube queries targeting the
   GBIF SQL download service used by EU B-Cubed pipelines
 
 ### Site screening
 - Draw a boundary on the map, or **import one** as GeoJSON, KML, WKT or a
-  lat/lon CSV — or generate it from a bounding box or a point + radius;
+  lat/lon CSV, or generate it from a bounding box or a point + radius;
   **export** the boundary as GeoJSON, KML or WKT plus the screen as JSON
 - One screen reports species recorded inside, named CR/EN/VU species, full
   IUCN composition, native/introduced *coverage*, decade effort,
   seasonality, record-quality flags, dataset attribution and the country
   each record is attributed to
 - **Country filter** on every GBIF query in both this page and Species
-  Analysis — including the benchmark baseline, the data-cube SQL and the
+  Analysis, including the benchmark baseline, the data-cube SQL and the
   Reproducibility Pack recipe, so a national sample is never compared with
   a global baseline
 - Clockwise rings, holes and multipolygons are handled; the same engine
@@ -199,8 +199,8 @@ the source.**
 | Run | `streamlit run app.py` | `uvicorn standalone.server:app --port 8080` |
 | UI | Multi-page data app | Single-page inspector + WebGL map |
 | Map | Leaflet/folium | MapLibre GL JS (no key, no token) |
-| API | — | `GET /api/analysis/{species}` (OpenJSON docs at `/docs`) |
-| Bring your own data | — | Upload + audit + cleaned export |
+| API |, | `GET /api/analysis/{species}` (OpenJSON docs at `/docs`) |
+| Bring your own data |, | Upload + audit + cleaned export |
 | Use case | Interactive exploration | Automation, integration, self-hosting |
 
 Both use the same `utils/` science layer: identical checks, identical
@@ -225,7 +225,7 @@ One-click options (auto-detect the Dockerfile):
 | Fly.io | `fly launch` → `fly deploy` |
 | Any VPS | `docker compose up -d` behind nginx/Caddy |
 
-No environment variables or API keys are required — the app only talks
+No environment variables or API keys are required, the app only talks
 to public GBIF, GloBI and tile endpoints.
 
 ### Standalone API example
@@ -238,7 +238,7 @@ curl "localhost:8080/api/analysis/Panthera%20leo?limit=300" | jq .scores
 The bundle includes BDQ-mapped checks, GBIF-wide benchmarking, SDM
 readiness (Zizka 2020 / Marcer 2022 profiles), EOO/AOO + KBA Criterion
 B screening with hull GeoJSON, GloBI interactions, and congeneric
-co-occurrence (Jaccard) — one JSON document, schema
+co-occurrence (Jaccard), one JSON document, schema
 `biosift.analysis/1.1`.
 
 ### BYOD API example
@@ -268,7 +268,7 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
-The app talks only to public GBIF API endpoints — no API key needed.
+The app talks only to public GBIF API endpoints, no API key needed.
 
 ---
 
@@ -288,7 +288,7 @@ The app talks only to public GBIF API endpoints — no API key needed.
 ## Project structure
 
 ```
-app.py                 # entry point — st.navigation wiring
+app.py                 # entry point, st.navigation wiring
 views/                 # one module per page (home, analysis, batch, …)
 utils/
   theme.py             # design system: tokens, components, chart theming
@@ -310,6 +310,6 @@ sitesift/
 
 ## License
 
-MIT — see [LICENSE](LICENSE). GBIF-mediated data are shared under CC-BY;
+MIT, see [LICENSE](LICENSE). GBIF-mediated data are shared under CC-BY;
 please cite contributing datasets (BioSift generates these citations for
 you in the Data & Export tab).

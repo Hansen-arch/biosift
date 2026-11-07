@@ -4,7 +4,7 @@ GBIF-wide benchmarking
 Answers the question every reviewer asks: "is this dataset bad, or is it
 just this sample?" We compare defect rates in the analysed sample against
 the *entire* GBIF population matching the same species + filters, using
-the occurrence search API (count queries only — no downloads).
+the occurrence search API (count queries only, no downloads).
 
 Baselines:
   total      -> count() with the same filters

@@ -1,13 +1,13 @@
 """Chart data for the standalone frontend.
 
-Descriptive statistics only — no plotting dependency. The frontend
+Descriptive statistics only, no plotting dependency. The frontend
 draws SVG/HTML from these numbers so every figure stays inside the
 app's own design language and no data leaves the process.
 
 Figures produced:
   correlation       Pearson r between record attributes (incl. the
                     number of checks each record triggered)
-  cooccurrence      Jaccard overlap between quality checks — which
+  cooccurrence      Jaccard overlap between quality checks, which
                     defects travel together
   decades           records and flag rate per decade
   completeness_dist distribution of per-record field completeness
@@ -122,7 +122,7 @@ def correlation(df: pd.DataFrame, flags: pd.DataFrame) -> dict:
     a = _attr_frame(df)
     a["flags"] = _flag_count(flags, df.index).astype(float)
 
-    # a zero-variance column cannot correlate with anything — drop it
+    # a zero-variance column cannot correlate with anything, drop it
     keys = [k for k in LABELS if k in a.columns
             and a[k].notna().sum() >= 5 and a[k].std(ddof=0) > 0]
     variables = [
@@ -286,7 +286,7 @@ def phenology(df: pd.DataFrame) -> dict | None:
         "peak_pct": round(counts[peak - 1] / total * 100, 1) if total else 0.0,
         "method": (
             "Share of dated records by month of year. Reads recording "
-            "activity (survey effort and season), not animal activity — "
+            "activity (survey effort and season), not animal activity, "
             "survey timing drives most of the pattern."
         ),
     }
@@ -298,7 +298,7 @@ def reporting_trend(df: pd.DataFrame) -> dict | None:
     Raw counts per year mix observation with effort, so the index is
     records per reporting dataset, normalised to its own median
     (100 = long-term median). A reporting-rate proxy, never an
-    abundance trend — and labelled that way in the UI.
+    abundance trend, and labelled that way in the UI.
     """
     if "year" not in df.columns:
         return None
@@ -333,7 +333,7 @@ def reporting_trend(df: pd.DataFrame) -> dict | None:
             "datasets report is not counted as a rise."
         ),
         "caveat": (
-            "Reporting rate, not abundance or occupancy — use it to "
+            "Reporting rate, not abundance or occupancy, use it to "
             "judge whether a count change is coverage."
         ),
     }

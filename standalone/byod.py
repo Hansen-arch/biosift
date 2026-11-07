@@ -1,20 +1,20 @@
 """
-Bring-Your-Own-Data (BYOD) engine — analyse user-uploaded datasets
+Bring-Your-Own-Data (BYOD) engine, analyse user-uploaded datasets
 through the same science layer the GBIF app uses.
 
 Design notes
 ────────────
-* Readers: CSV / TSV / Excel / Darwin Core Archive (dwca.zip) — DwC-A
+* Readers: CSV / TSV / Excel / Darwin Core Archive (dwca.zip), DwC-A
   extraction mirrors the IPT layout (occurrence.txt with optional
   meta.xml column mapping).
 * Column mapping: case/punct-insensitive canonical names + smart
   aliases, then fuzzy fallback over all columns. The mapper is
-  metadata-only — no data leaves scope; all computation is local.
+  metadata-only, no data leaves scope; all computation is local.
 * Checks add the CoordinateCleaner-inspired geographic and dating
   tests (Zizka et al. 2019, Methods Ecol Evol; 1500+ citations) the
   GBIF-pipeline checks do not cover: coord swaps, capital/centroid
   proximity, on-country-edge, future dates, implausible names.
-* Everything is optional — a dataset with 3 usable columns still
+* Everything is optional, a dataset with 3 usable columns still
   gets a full report; tests skip gracefully per record.
 """
 import io
@@ -230,7 +230,7 @@ def _country_geo(name_or_code: str):
 CAPITALS = {
     # a pragmatic subset covering the most common dataset origins;
     # CoordinateCleaner ships the full global list, we embed a
-    # representative one (name, lat, lon) — ~80 entries
+    # representative one (name, lat, lon), ~80 entries
     "canberra": (-35.28, 149.13), "wellington": (-41.29, 174.78),
     "pretoria": (-25.75, 28.19), "cape town": (-33.92, 18.42),
     "nairobi": (-1.29, 36.82), "madrid": (40.42, -3.70),
@@ -287,7 +287,7 @@ def run_geographic_checks(df: pd.DataFrame) -> pd.DataFrame:
     (on a coordinate edge), cd_round (rasterized coordinates,
     dataset-level diagnosis applied per record), cd_ddmm (degree-
     minute conversion error) and coordinate hotspots (many records
-    on one exact coordinate — GBIF HQ / zoo / mass-capture signature).
+    on one exact coordinate, GBIF HQ / zoo / mass-capture signature).
     """
     flags = pd.DataFrame(index=df.index)
 
@@ -319,7 +319,7 @@ def _check_equal_latlon(lat, lon):
 
 def _check_ddmm(df, lat, lon):
     """cd_ddmm (dataset-level): GPS set to degrees+minutes but written
-    as decimal degrees. Signature — across the whole dataset the
+    as decimal degrees. Signature, across the whole dataset the
     fractional parts are minute-like (0.01–0.59) and NEVER reach 0.60+
     (real decimal degrees spread uniformly 0–99 hundredths).
     Requires ≥10 non-integer coordinates before the dataset is judged;
@@ -658,7 +658,7 @@ def bdq_from_flags(flags: pd.DataFrame) -> list:
 def analyze_uploaded(df_raw: pd.DataFrame, mapping: dict | None = None,
                      dataset_name: str = "",
                      profile: str = "General") -> dict:
-    """Full BYOD analysis — same pipeline as the species endpoint."""
+    """Full BYOD analysis, same pipeline as the species endpoint."""
     from utils.quality import (run_quality_checks, quality_summary,
                                get_completeness_score,
                                get_precision_stats)
@@ -719,7 +719,7 @@ def analyze_uploaded(df_raw: pd.DataFrame, mapping: dict | None = None,
         _fr, rounded_stats = _check_rounded(
             df["decimalLatitude"], df["decimalLongitude"])
 
-    # column profile — what the user actually uploaded
+    # column profile, what the user actually uploaded
     col_profile = []
     for c in df_raw.columns:
         s = df_raw[c]

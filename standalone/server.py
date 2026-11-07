@@ -2,7 +2,7 @@
 BioSift Standalone API
 ──────────────────────
 FastAPI wrapper around the framework-agnostic science layer in utils/.
-Same checks, same standards, same outputs as the Streamlit app — no
+Same checks, same standards, same outputs as the Streamlit app, no
 Streamlit runtime required.
 
 Run:
@@ -141,7 +141,7 @@ def analysis(
     include_records: bool = Query(False, description="embed row samples"),
 ):
     """
-    Full analysis bundle for one species — the same pipeline the
+    Full analysis bundle for one species, the same pipeline the
     Streamlit app runs, as a single JSON document.
     """
     species = species.strip()
@@ -280,7 +280,7 @@ def analysis(
         "factsheet": factsheet,
         "rangeshift": rangeshift,
         "envelope": envelope,        "year_counts": (
-            # population curve when the facet histogram is available —
+            # population curve when the facet histogram is available -
             # a newest-first sample would show a single spike year
             [{"year": int(y), "count": int(c)}
              for y, c in hist.items()]
@@ -324,7 +324,7 @@ def analysis(
 async def upload_inspect(file: UploadFile = File(...)):
     """Read an uploaded file and propose a column mapping.
 
-    Metadata only — no analysis. The frontend shows the proposed
+    Metadata only, no analysis. The frontend shows the proposed
     mapping for user confirmation (review step, like GBIF IPT).
     """
     from standalone import byod

@@ -1,11 +1,11 @@
-"""Range-shift analysis — did the recorded distribution move?
+"""Range-shift analysis, did the recorded distribution move?
 
 The standard observed range-shift design compares where records sit in
 two periods of the sampling history (cf. GBIF's climate-change use
 cases; range-shift syntheses such as Rubenstein et al. 2023, Environ
 Evid). Two entry points:
 
-  range_shift(df)      auto-splits a frame that already spans time —
+  range_shift(df)      auto-splits a frame that already spans time -
                        earliest vs latest 40% of records by year. This
                        is what an uploaded dataset gets.
   compare_periods(a,b)  compares two frames that were sampled from
@@ -19,7 +19,7 @@ Between periods: centroid shift (great-circle), signed north/south
 component, extent change and grid turnover.
 
 The caveat ships with the numbers: a shift in *recorded* extent also
-contains changes in sampling effort and observer geography — it is an
+contains changes in sampling effort and observer geography, it is an
 observed distribution shift, not a demographic one.
 """
 import numpy as np
@@ -79,7 +79,7 @@ def _sample_points(sub: pd.DataFrame,
     """Coordinates the period statistics were computed from.
 
     Returned so the map overlay can show exactly the records behind the
-    numbers — never a differently-sampled set that may contain no
+    numbers, never a differently-sampled set that may contain no
     records in either period at all.
     """
     if len(sub) > limit:

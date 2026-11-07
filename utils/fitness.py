@@ -2,7 +2,7 @@
 SDM readiness audit
 ───────────────────
 Journal-grounded, tiered assessment of whether the analysed sample can
-support species distribution modelling — with the filtering *strictness*
+support species distribution modelling, with the filtering *strictness*
 the user chose made explicit.
 
 Methodology implemented (flag names in brackets are CoordinateCleaner's):
@@ -84,13 +84,13 @@ def audit_sdm_readiness(df, flags, mode="Standard (≤10 km, Zizka et al. 2020)"
         })
         return mask.fillna(False)
 
-    # G1 — georeferenced
+    # G1, georeferenced
     g1 = lat.notna() & lon.notna()
     gate("Georeferenced", g1,
          "Records must carry decimalLatitude and decimalLongitude.",
          cite="Zizka et al. 2020, coordinate presence filter")
 
-    # G2 — not Null Island / implausible
+    # G2, not Null Island / implausible
     g2 = g1 & ~(
         (lat.fillna(0) == 0) & (lon.fillna(0) == 0)
     )
@@ -98,7 +98,7 @@ def audit_sdm_readiness(df, flags, mode="Standard (≤10 km, Zizka et al. 2020)"
          "Excludes 0°N/0°E 'Null Island' artefacts.",
          cite="GBIF Georeferencing Best Practice 2020")
 
-    # G3 — coordinate uncertainty within profile
+    # G3, coordinate uncertainty within profile
     if "coordinateUncertaintyInMeters" in df.columns:
         unc = pd.to_numeric(df["coordinateUncertaintyInMeters"],
                             errors="coerce")
@@ -128,7 +128,7 @@ def audit_sdm_readiness(df, flags, mode="Standard (≤10 km, Zizka et al. 2020)"
              "uncertainty gate not evaluated.",
              cite="Marcer et al. 2022, uncertainty axis", critical=False)
 
-    # G4 — precision sufficient (≥ 2 decimal places ≈ ≤1 km grid)
+    # G4, precision sufficient (≥ 2 decimal places ≈ ≤1 km grid)
     def _prec(series):
         def dec(v):
             if pd.isna(v):
@@ -142,13 +142,13 @@ def audit_sdm_readiness(df, flags, mode="Standard (≤10 km, Zizka et al. 2020)"
          "Sub-1 km reporting precision required for fine-scale SDM.",
          cite="Zizka et al. 2020, precision filter")
 
-    # G5 — dated
+    # G5, dated
     g5 = g4 & df["year"].notna()
     gate("Dated (year present)", g5,
          "Temporal context required for bias assessment and thinning.",
          cite="Zizka et al. 2020, date filter")
 
-    # G6 — no duplicate species+space+time
+    # G6, no duplicate species+space+time
     g6_mask = ~df.duplicated(
         subset=["species", "decimalLatitude", "decimalLongitude", "year"],
         keep="first"

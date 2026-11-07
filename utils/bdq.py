@@ -2,7 +2,7 @@
 TDWG Biodiversity Data Quality (BDQ) standards mapping
 ──────────────────────────────────────────────────────
 Maps every BioSift check to its official TDWG BDQ Test identifier
-(https://github.com/tdwg/bdq — TG2 core tests), so results are
+(https://github.com/tdwg/bdq, TG2 core tests), so results are
 communicated in the vocabulary the global community already uses.
 
 Identifiers follow the TG2 core test list (tdwg/bdq repo, tg2/core).

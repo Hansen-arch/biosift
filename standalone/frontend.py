@@ -1,14 +1,14 @@
 """
-BioSift Standalone Frontend — single-file MapLibre GL JS app.
+BioSift Standalone Frontend, single-file MapLibre GL JS app.
 
 Design notes (light scholarly ledger, see DESIGN.md; antislop filter):
   - warm paper + ink + one deep-emerald accent, flat surfaces, radius 4,
     Georgia serif brand, system sans with tabular numerals
-  - MapLibre GL JS (BSD-3, Mapbox GL v1 fork — no API key, no token)
+  - MapLibre GL JS (BSD-3, Mapbox GL v1 fork, no API key, no token)
   - key-free raster style built from verified XYZ endpoints (Esri Light
-    Gray + World Imagery, OSM, OpenTopoMap — no CARTO, no API keys)
+    Gray + World Imagery, OSM, OpenTopoMap, no CARTO, no API keys)
   - inspector layout: fixed left analysis panel, full-height map
-  - no emoji, no gradient hero, no decorative icons — monochrome
+  - no emoji, no gradient hero, no decorative icons, monochrome
     SVG line icons only, same visual family as utils/icons.py
   - system font stack (no webfont fetch), tabular numerals for metrics
 
@@ -163,7 +163,7 @@ td.num{text-align:right;font-variant-numeric:tabular-nums;color:var(--dim)}
 .spark .axis{stroke:var(--line);stroke-width:1}
 .spark path{fill:rgba(30,122,84,.15);stroke:var(--acc);stroke-width:1.5}
 .gaps{margin-top:6px}
-/* charts — dependency-free SVG heatmaps + CSS bars */
+/* charts, dependency-free SVG heatmaps + CSS bars */
 .chart{display:block;width:100%;height:auto;margin-top:2px}
 .chart .ax{font-size:9.5px;fill:var(--faint)}
 .chart .celltx{font-size:8.5px;fill:var(--text);
@@ -616,7 +616,7 @@ function initMap(){
   document.getElementById('mapwrap').appendChild(wrap);
   wrap.style.cssText='position:absolute;top:8px;right:8px;z-index:6';
   map.on('load', ()=>{ mapReady=true; });
-  // point popup — official MapLibre click pattern; layers are filtered
+  // point popup, official MapLibre click pattern; layers are filtered
   // to whatever actually exists in the current style
   map.on('click', (e)=>{
     const ids = ['occ-pt-fill','clusters']
@@ -766,13 +766,13 @@ function popupHTML(p){
 function pushGeo({points, hull}){
   window.__lastGeo = {points, hull};
   if(!mapReady) return;
-  // a popup tied to the previous dataset is stale — drop it
+  // a popup tied to the previous dataset is stale, drop it
   try{ popup.remove(); }catch(e){}
-  // a period overlay belongs to the previous dataset — drop it too
+  // a period overlay belongs to the previous dataset, drop it too
   clearPeriodLayers();
   const pb=document.getElementById('btn-periods');
   if(pb) pb.textContent='Overlay periods on map';
-  // MapLibre v4 removeLayer/removeSource return void (not Promises) —
+  // MapLibre v4 removeLayer/removeSource return void (not Promises) -
   // guard with getLayer/getSource, never .catch()
   ['occ-heat','occ-hull-fill','occ-hull-line','occ-pt-fill',
    'occ-pt-stroke','clusters','cluster-count']
@@ -780,7 +780,7 @@ function pushGeo({points, hull}){
   if(map.getSource('occ')){ try{ map.removeSource('occ'); }catch(e){} }
   if(map.getSource('hull')){ try{ map.removeSource('hull'); }catch(e){} }
 
-  // cluster source — official MapLibre clustering pattern; leaves
+  // cluster source, official MapLibre clustering pattern; leaves
   // carry the per-record properties used by the popup. clusterProperties
   // sums each leaf's fl (flagged 1/0) into `flagged` for cluster tint.
   map.addSource('occ', {
@@ -1256,7 +1256,7 @@ function togglePeriodOverlay(){
     return;
   }
   const rs=window.__rangeShift;
-  // prefer the exact coordinates the shift was computed from — the map
+  // prefer the exact coordinates the shift was computed from, the map
   // sample is newest-first and may hold no records in either period
   const feats=[];
   const pts=rs.points || null;
@@ -1330,7 +1330,7 @@ function buildScript(lang){
   const basis=(q.basis && q.basis!=='All')
     ? '  basisOfRecord = ' + qStr(q.basis) + ',' : '';
   const head=[
-    '# BioSift recipe — regenerate the analysis for ' + sp,
+    '# BioSift recipe, regenerate the analysis for ' + sp,
     '# ' + (b.scores ? b.scores.records_analysed : '') + ' records, years '
       + (q.year_from || '') + '-' + (q.year_to || '') + ', basis '
       + (q.basis || 'All'),
@@ -1442,7 +1442,7 @@ function render(d){
 
   document.getElementById('kba').innerHTML = kbaHTML(d);
 
-  // community (GBIF mode only — element hidden in BYOD mode)
+  // community (GBIF mode only, element hidden in BYOD mode)
   const com=document.getElementById('community');
   const inter=d.interactions||{total:0,by_type:[]};
   const coo=d.cooccurrence;
@@ -1490,7 +1490,7 @@ function render(d){
   document.getElementById('cites').innerHTML =
     'Method: '+d.standards.quality_tests;
 
-  // map data — colour comes from OUR BDQ verdict, not GBIF issues
+  // map data, colour comes from OUR BDQ verdict, not GBIF issues
   const recs=(d.records&&d.records.analysed)||[];
   const feats=recs
     .filter(r=>r.decimalLatitude!=null&&r.decimalLongitude!=null)

@@ -111,7 +111,7 @@ def _pairs(geometry):
 
 
 def ring_area_km2(ring):
-    """Spherical ring area — the same formulation turf.js uses."""
+    """Spherical ring area, the same formulation turf.js uses."""
     if len(ring) < 4:
         return 0.0
     total = 0.0
@@ -189,7 +189,7 @@ def _ring(raw, where):
             raise BoundaryError(f"{where}: a vertex is not numeric")
         if not (-180 <= lon <= 180 and -90 <= lat <= 90):
             raise BoundaryError(
-                f"{where}: vertex {lon}, {lat} is outside the world — "
+                f"{where}: vertex {lon}, {lat} is outside the world, "
                 "latitude and longitude may be swapped"
             )
         out.append([lon, lat])
@@ -256,7 +256,7 @@ def from_geojson(obj):
 
     if gtype == "Point":
         raise BoundaryError(
-            "a point is not a boundary — use the point + radius option"
+            "a point is not a boundary, use the point + radius option"
         )
 
     raise BoundaryError(f"unsupported GeoJSON type: {gtype!r}")
@@ -490,7 +490,7 @@ def from_csv(text):
             # assumed and stated, and the preview map shows the result.
             lat_i, lon_i = 0, 1
             note = ("no header found: assumed latitude first, longitude "
-                    "second — check the preview, or add a header row")
+                    "second, check the preview, or add a header row")
 
     ring = []
     for n, row in enumerate(body, start=1):
@@ -516,7 +516,7 @@ def parse_boundary(text):
     inferred (CSV column order, a merged collection of polygons).
     """
     if not isinstance(text, str) or not text.strip():
-        raise BoundaryError("nothing to read — paste a boundary or upload "
+        raise BoundaryError("nothing to read, paste a boundary or upload "
                             "a file")
     body = text.strip()
     head = body[:2000].lower()
@@ -538,7 +538,7 @@ def parse_boundary(text):
         return from_csv(body)
 
     raise BoundaryError(
-        "could not recognise the format — expected GeoJSON, KML, WKT "
+        "could not recognise the format, expected GeoJSON, KML, WKT "
         "(POLYGON(...)) or a CSV of latitude/longitude vertices"
     )
 
@@ -551,7 +551,7 @@ def read_upload(filename, data):
         text = data
     if filename and filename.lower().endswith(".kmz"):
         raise BoundaryError(
-            "KMZ is a zipped KML — unzip it, or export as .kml/.geojson"
+            "KMZ is a zipped KML, unzip it, or export as .kml/.geojson"
         )
     return parse_boundary(text)
 

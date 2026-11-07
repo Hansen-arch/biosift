@@ -116,7 +116,7 @@ class Tab:
                 ):
                     return True
             except Exception:
-                pass  # navigation race — document tearing
+                pass  # navigation race, document tearing
             time.sleep(1)
         return False
 
@@ -130,14 +130,14 @@ class Tab:
                 ):
                     return True
             except Exception:
-                return True  # page torn down — text is gone
+                return True  # page torn down, text is gone
             time.sleep(1)
         return False
 
     def click_text(self, text, tag="button"):
         """Real CDP mouse click on the element matching text.
         Falls back to a, button, [role=tab], label, div.
-        Self-contained JS — survives Streamlit soft reloads."""
+        Self-contained JS, survives Streamlit soft reloads."""
         selectors = [tag, "a", "button", '[role="tab"]', "label", "div"]
         for sel in selectors:
             rect = self.js(f"""
@@ -499,7 +499,7 @@ def audit_analysis(tab):
                 .replace("__", "_"))
         tab.shot(f"{i:02d}_tab_{safe}")
 
-    # export affordances — pack/PDF/cube build slowly (reppack ZIP,
+    # export affordances, pack/PDF/cube build slowly (reppack ZIP,
     # reportlab PDF, GloBI fetch), so poll instead of sampling once
     deadline = time.time() + 120
     n = 0

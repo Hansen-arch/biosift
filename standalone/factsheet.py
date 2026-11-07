@@ -1,4 +1,4 @@
-"""Species factsheet — the identity block an analysis should open with.
+"""Species factsheet, the identity block an analysis should open with.
 
 A species page in any reference resource (GBIF, NatureServe, iNaturalist,
 a TDWG Species Profile Model implementation) answers *what is this

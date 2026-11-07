@@ -4,13 +4,13 @@ Ecological co-occurrence
 Ecological communities, not pairwise trophic lists: for a target species,
 we fetch the genus-level assemblage from GBIF (all congeneric records in
 the same filtered window), then quantify shared geography with a 1°-grid
-Jaccard overlap — a standard presence/absence similarity index
+Jaccard overlap, a standard presence/absence similarity index
 (Jaccard 1901; Real & Vargas 1996 for its use in biogeography).
 
 High overlap with a congener flags: shared habitat use, sampling
 co-detection, or genuine ecological association. Low-overlap congeners
 distinguish allopatric relatives. This is *observed* community structure
-from GBIF itself — not inferred network guesses.
+from GBIF itself, not inferred network guesses.
 """
 
 from concurrent.futures import ThreadPoolExecutor, wait

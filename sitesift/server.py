@@ -1,4 +1,4 @@
-"""SiteSift API — site-level screening over open GBIF data.
+"""SiteSift API, site-level screening over open GBIF data.
 
 Run from the repository root:
 

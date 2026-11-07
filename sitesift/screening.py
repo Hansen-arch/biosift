@@ -1,4 +1,4 @@
-"""SiteSift screening core — what lives inside a site polygon.
+"""SiteSift screening core, what lives inside a site polygon.
 
 Site-level screening (TNFD LEAP "Locate/Evaluate", ESRS E4 site disclosure,
 EIA scoping) normally means licensing IBAT, whose report downloads and API
@@ -8,12 +8,12 @@ and says plainly what it cannot do.
 Everything below was measured against the live API, not assumed:
 
   * ``geometry=POLYGON((...))`` works keyless and is fast (~2 s)
-  * one request can carry nine facets at once (~0.8 s) — all the
+  * one request can carry nine facets at once (~0.8 s), all the
     composition numbers, country attribution included, come from a single
     call
   * ``iucnRedListCategory=CR`` filters records, so named species of
     concern are reachable without per-taxon lookups
-  * ``iucnRedListCategory=CR,EN,VU`` returns **0** — unlike ``year`` it
+  * ``iucnRedListCategory=CR,EN,VU`` returns **0**, unlike ``year`` it
     takes no comma list, so threatened categories are one call each
   * ``geoDistance=lat,lon,km`` is unusable: a 10 km radius returned 64
     records where the equivalent bounding box returned 2.9 million, and
@@ -22,9 +22,9 @@ Everything below was measured against the live API, not assumed:
   * ``facetLimit`` defaults to 10. Without setting it, species lists
     truncate silently at ten names.
 
-Deliberately excluded: WDPA/WDPCA and KBA boundaries. Both are licensed —
+Deliberately excluded: WDPA/WDPCA and KBA boundaries. Both are licensed -
 Protected Planet's API returns 401 without a token and the KBA download is
-a request form — so claiming a designation overlap from open data would be
+a request form, so claiming a designation overlap from open data would be
 a fabrication. The bundle states this instead of guessing.
 """
 from __future__ import annotations
@@ -235,10 +235,10 @@ def prepare_site(geometry: dict) -> dict:
         lats += [p[1] for p in poly["outer"]]
 
     if area <= 0:
-        raise ValueError("polygon encloses no area — check the vertex order")
+        raise ValueError("polygon encloses no area, check the vertex order")
     if area > MAX_AREA_KM2:
         raise ValueError(
-            f"site is {area:,.0f} km² — above the "
+            f"site is {area:,.0f} km², above the "
             f"{MAX_AREA_KM2:,.0f} km² limit for a meaningful site screen")
 
     # WKT with holes kept, so the query matches what was drawn
@@ -303,7 +303,7 @@ def _base(site_wkt, year_from=None, year_to=None, basis=None,
         p.append(("basisOfRecord", basis))
     # country= takes an ISO 3166-1 alpha-2 code. It filters on GBIF's
     # *interpreted* country, which is filled from the coordinates when the
-    # publisher left it blank — so a border site can lose records that sit
+    # publisher left it blank, so a border site can lose records that sit
     # in the polygon but are attributed to the neighbour.
     if country:
         p.append(("country", country))
@@ -586,7 +586,7 @@ def screen(geometry: dict, label: str = "", year_from=None, year_to=None,
         caveats.insert(1, (
             f"At {site['area_km2']:,.0f} km² this site is large enough that "
             "a record anywhere inside it is treated as evidence for the "
-            "whole site — too coarse for a project footprint."))
+            "whole site, too coarse for a project footprint."))
     bundle = {
         "site": {"label": label or "Untitled site",
                  "area_km2": site["area_km2"],
@@ -620,7 +620,7 @@ def screen(geometry: dict, label: str = "", year_from=None, year_to=None,
             "note": (
                 "Global IUCN Red List category as recorded by GBIF. A "
                 "species being listed does not mean the site is important "
-                "for it — that needs population evidence and a formal "
+                "for it, that needs population evidence and a formal "
                 "assessment."
             ),
         },

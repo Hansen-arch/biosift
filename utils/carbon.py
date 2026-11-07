@@ -15,8 +15,8 @@ Methodology (all cited):
          AGB = exp(-1.803 - 0.976*E + 0.976*mean(WD*DBH^2*H)
                    - 0.0281*mean((WD*DBH^2*H)^2))
      For record-level estimation without measured DBH/H we use the
-     conservative default-diameter approach (DBH=30 cm, H=15 m) — the
-     median mature tropical tree — and DISCLOSE this as a scenario, not
+     conservative default-diameter approach (DBH=30 cm, H=15 m), the
+     median mature tropical tree, and DISCLOSE this as a scenario, not
      a measurement.
   2. Root-to-shoot ratio 0.24 for belowground biomass (IPCC 2006 AFOLU,
      Table 4.4, tropical broadleaf).
@@ -31,7 +31,7 @@ Wood density (WD g/cm³) per species/stocking defaults:
   global wood-density database).
 
 HONESTY RULE: outputs are 'indicated potential', clearly labelled as
-scenario estimates that scale linearly with record count — the number
+scenario estimates that scale linearly with record count, the number
 answers "how much carbon do the trees in this dataset represent?", not
 "a measured inventory".
 """

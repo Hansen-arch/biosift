@@ -139,7 +139,7 @@ def render():
     )
     country_code = country_code_from_label(country_label, countries)
     if country_source == "fallback":
-        st.caption("Country list is the built-in short list — GBIF's "
+        st.caption("Country list is the built-in short list, GBIF's "
                    "country enumeration is unreachable right now.")
 
     limit = st.slider("Max records", 100, 10000, 500, step=100)

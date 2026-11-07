@@ -1,7 +1,7 @@
 """
 PDF Quality Report
 ──────────────────
-A polished, branded PDF summary of any BioSift analysis — designed to be
+A polished, branded PDF summary of any BioSift analysis, designed to be
 attached to grant applications, theses and data management plans.
 """
 

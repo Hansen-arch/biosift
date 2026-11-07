@@ -2,14 +2,14 @@
 Reproducibility Pack
 ────────────────────
 One click produces a reviewer-ready ZIP:
-  biosift_report.json    — run metadata, scores, per-check BDQ results
-  methods.txt            — paste-ready methods paragraph
-  citations.txt          — APA + BibTeX for the GBIF-mediated data
-  data_full.csv          — analysed sample, export-friendly
-  data_clean.csv         — quality-filtered subset
-  dwca_occurrence.zip    — standards-compliant Darwin Core Archive
-  recipe.json            — exact GBIF API calls to regenerate the sample
-  README.txt             — what this pack is and how to reuse it
+  biosift_report.json   , run metadata, scores, per-check BDQ results
+  methods.txt           , paste-ready methods paragraph
+  citations.txt         , APA + BibTeX for the GBIF-mediated data
+  data_full.csv         , analysed sample, export-friendly
+  data_clean.csv        , quality-filtered subset
+  dwca_occurrence.zip   , standards-compliant Darwin Core Archive
+  recipe.json           , exact GBIF API calls to regenerate the sample
+  README.txt            , what this pack is and how to reuse it
 """
 
 import json

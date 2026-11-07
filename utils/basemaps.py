@@ -1,9 +1,9 @@
 """
-Professional key-free basemaps — explicit XYZ tile URLs.
+Professional key-free basemaps, explicit XYZ tile URLs.
 
 No CARTO (requires API key for production use), no vendor aliases, no
 API keys. Every URL below is a public, key-free endpoint:
-  - Esri Light Gray Canvas (default — clean professional cartography)
+  - Esri Light Gray Canvas (default, clean professional cartography)
   - OSM standard tiles (ODbL)
   - Esri ArcGIS Online World Imagery / Ocean (free with attribution)
   - OpenTopoMap (CC-BY-SA)

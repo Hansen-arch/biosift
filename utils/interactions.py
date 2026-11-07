@@ -2,7 +2,7 @@
 Species interactions via GloBI
 ──────────────────────────────
 Global Biotic Interactions (GloBI, Poelen et al. 2014, Ecological
-Informatics) aggregates openly-licensed species-interaction data —
+Informatics) aggregates openly-licensed species-interaction data -
 predator–prey, pollinator–plant, parasite–host, pathogen–host, symbionts.
 
 GBIF's 2026 Work Programme explicitly names species interactions as a
@@ -85,7 +85,7 @@ def fetch_interactions(scientific_name):
     """
     Query GloBI for all recorded interactions of a species using the
     directional taxon parameters (sourceTaxon= / targetTaxon=), which
-    return resolved, semantically-typed records — unlike the fuzzy q=
+    return resolved, semantically-typed records, unlike the fuzzy q=
     search, which is polluted with unresolved citation artefacts.
 
     Direction is normalised so the analysed species is the subject.

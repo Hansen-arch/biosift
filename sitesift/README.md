@@ -2,8 +2,8 @@
 
 **Site-level biodiversity screening from open GBIF data.**
 
-Draw a polygon over a site — a project footprint, a development parcel, a
-survey plot — and SiteSift reports which species are recorded there, which
+Draw a polygon over a site, a project footprint, a development parcel, a
+survey plot, and SiteSift reports which species are recorded there, which
 are of conservation concern, how the records are distributed in time, who
 published them, and how trustworthy they are.
 
@@ -35,7 +35,7 @@ uvicorn sitesift.server:app --port 8090
 # open http://localhost:8090
 ```
 
-Requires only `fastapi`, `uvicorn` and `requests` — already in
+Requires only `fastapi`, `uvicorn` and `requests`, already in
 `requirements.txt`. No API keys, no database, no build step; the frontend is
 a single HTML page with MapLibre from a CDN.
 
@@ -96,7 +96,7 @@ this from open data":
 - **No native/introduced filtering.** The field is recorded on a small
   fraction of records (3% for *Quercus robur*, 1.7% in the London test site).
   Filtering would discard almost all evidence, so coverage is disclosed
-  instead — which is also what makes planted species visible rather than
+  instead, which is also what makes planted species visible rather than
   silently mixed into a threatened-species list.
 - **No population or trend claim.** Record counts measure survey effort.
   A species absent from a site list may be unsurveyed.
@@ -139,7 +139,7 @@ reason; GBIF failure returns `502`.
 |---|---|
 | `geometry=POLYGON((...))` works keyless, ~2 s | the whole app is possible without a key |
 | Eight facets in one request, ~1.7 s | all composition from a single call |
-| **Clockwise exterior rings are rejected** (`400 Polygon with clockwise exterior ring`) | rings are re-wound before querying — a drawn polygon can go either way |
+| **Clockwise exterior rings are rejected** (`400 Polygon with clockwise exterior ring`) | rings are re-wound before querying, a drawn polygon can go either way |
 | `iucnRedListCategory=CR` filters records | named species of concern without per-taxon calls |
 | **`iucnRedListCategory=CR,EN,VU` returns 0** | one call per category, never a comma list |
 | `facetLimit` defaults to **10** | unset, species lists truncate silently |

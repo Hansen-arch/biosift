@@ -37,7 +37,7 @@ FAILS = []
 
 def check(label, ok, detail=""):
     print(f"  [{'PASS' if ok else 'FAIL'}] {label}"
-          + (f" — {detail}" if detail else ""))
+          + (f", {detail}" if detail else ""))
     if not ok:
         FAILS.append(label)
 
@@ -237,7 +237,7 @@ def run_analysis(tab, species):
       ['m-total','m-analysed','m-health','m-sdm'].map(id =>
         document.getElementById(id).textContent).join(' | ')
     """)
-    check("metrics filled", "—" not in metrics, metrics[:80])
+    check("metrics filled", "-" not in metrics, metrics[:80])
 
     nrows = tab.js("document.querySelectorAll('#t-checks tr').length")
     check("quality-check rows", (nrows or 0) >= 5, f"{nrows} rows")
@@ -268,7 +268,7 @@ def run_analysis(tab, species):
     temporal = tab.js(
         "document.getElementById('temporal').innerText.slice(0,60)")
     check("temporal section rendered",
-          bool(temporal and ("Span" in temporal or "—" in temporal
+          bool(temporal and ("Span" in temporal or "-" in temporal
                              or "No dated" in temporal)),
           (temporal or "")[:50])
     sdm_txt = tab.js(
@@ -451,7 +451,7 @@ def popup_and_cluster(tab):
     check("clusters render at world zoom", n_cl > 0, f"{n_cl} clusters")
 
     # pick a REAL leaf coordinate from the embedded data (sparse
-    # datasets: a cluster centroid at z9 can be empty — jumping to an
+    # datasets: a cluster centroid at z9 can be empty, jumping to an
     # actual point location always lands on the leaf)
     coord = tab.js("""
       (() => {
@@ -481,7 +481,7 @@ def popup_and_cluster(tab):
     tab.js("window.__idle3")
     time.sleep(1)
     # project to CONTAINER pixels, then add the container's window
-    # offset — CDP clicks use window coordinates, map.project does not
+    # offset, CDP clicks use window coordinates, map.project does not
     xy = tab.js("window.__idle3.then(() => { const p = window.__map"
                 ".project(window.__pt); const r = document"
                 ".getElementById('map').getBoundingClientRect(); "
@@ -621,7 +621,7 @@ def byod_flow(tab):
     check("no page errors after byod run", len(errs(tab)) == 0,
           json.dumps(errs(tab))[:200])
 
-    # namecheck cell text is uppercased by th styling — match loosely
+    # namecheck cell text is uppercased by th styling, match loosely
     ncv_txt = tab.js(
         "document.getElementById('namecheck').innerText")
 
@@ -693,7 +693,7 @@ def byod_flow(tab):
       })()
     """)
     if coord != "null":
-        # drop any popup left open by the previous test phase —
+        # drop any popup left open by the previous test phase -
         # its DOM would swallow the synthetic click
         tab.js(
             "(() => { const c = document.querySelector("
@@ -781,7 +781,7 @@ def viewports(tab):
               f" viewport_h={d.get('viewport_h')}"
               f" win_scroll_y={d.get('win_scroll_y')}")
         # then reachability: directly, or after an in-panel scroll on
-        # mobile/short screens (panel capped at 46vh — standard
+        # mobile/short screens (panel capped at 46vh, standard
         # stacked-dashboard behaviour)
         res = top_element_no_scroll(tab, "#run")
         if res.split(" ")[0] == "BUTTON":

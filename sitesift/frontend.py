@@ -1,11 +1,11 @@
-"""SiteSift frontend — one page, no build step, no API keys."""
+"""SiteSift frontend, one page, no build step, no API keys."""
 
 HTML = r"""<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>SiteSift — site biodiversity screening</title>
+<title>SiteSift, site biodiversity screening</title>
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet"/>
 <style>
@@ -98,7 +98,7 @@ i.sci{font-style:italic}
 ul.cav{list-style:none;font-size:12px;color:var(--dim)}
 ul.cav li{padding:5px 0 5px 14px;position:relative;border-top:1px solid var(--line)}
 ul.cav li:first-child{border-top:none}
-ul.cav li:before{content:"—";position:absolute;left:0;color:var(--faint)}
+ul.cav li:before{content:"-";position:absolute;left:0;color:var(--faint)}
 
 #status{position:absolute;left:50%;top:18px;transform:translateX(-50%);
   background:var(--card);border:1px solid var(--line-strong);border-radius:8px;
@@ -349,7 +349,7 @@ function renderDraft(){
     vertices.map(v => ({type:'Feature', properties:{}, geometry:{type:'Point', coordinates:v}}))});
   const n = vertices.length;
   document.getElementById('drawinfo').innerHTML = drawn
-    ? 'Site closed — press <b>Screen site</b>, or <b>Clear</b> to redraw.'
+    ? 'Site closed, press <b>Screen site</b>, or <b>Clear</b> to redraw.'
     : (n === 0 ? 'Click the map to place vertices; three or more closes a site.'
                : `${n} vertex${n > 1 ? 'es' : ''} placed. Click again to add, or screen once you have three.`);
   document.getElementById('btnScreen').disabled = n < 3;
@@ -397,7 +397,7 @@ async function screenSite(){
     if (!r.ok) throw new Error(js.detail || 'screening failed');
     bundle = js;
     render(js);
-    status(`Screened in ${js.elapsed_s}s${js.cached ? ' (cached)' : ''} — ${js.summary.records.toLocaleString()} records`);
+    status(`Screened in ${js.elapsed_s}s${js.cached ? ' (cached)' : ''}, ${js.summary.records.toLocaleString()} records`);
     setTimeout(() => status(''), 3600);
     if (js.site.bbox){
       map.fitBounds([[js.site.bbox[0], js.site.bbox[1]],
@@ -413,7 +413,7 @@ async function screenSite(){
 
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g,
   c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const num = n => (n == null ? '—' : Number(n).toLocaleString());
+const num = n => (n == null ? '-' : Number(n).toLocaleString());
 
 function render(b){
   document.getElementById('results').style.display = 'block';
@@ -450,7 +450,7 @@ function renderThreat(b){
   if (!cats.length){
     el.innerHTML = `<div class="card"><div class="note">No threatened
       (CR / EN / VU) species are recorded inside this site. That is a real
-      finding only if surveying has been adequate — check the effort panel below.</div></div>`;
+      finding only if surveying has been adequate, check the effort panel below.</div></div>`;
     return;
   }
   el.innerHTML = `<div class="card">` + cats.map(c => `
@@ -505,7 +505,7 @@ function renderEstablish(b){
       <b>${e.coverage_pct}%</b> of the site's records. It is shown as
       coverage rather than used to filter, because filtering would discard
       the ${100 - e.coverage_pct > 0 ? (100 - e.coverage_pct).toFixed(1) : 0}%
-      that carry no value — including planted and escaped species.</div>`;
+      that carry no value, including planted and escaped species.</div>`;
 }
 
 function renderSpecies(b){
@@ -598,7 +598,7 @@ function rScript(){
     yf && yt ? `,\n  year = "${yf},${yt}"` : '',
     basis !== 'All' ? `,\n  basisOfRecord = "${basis}"` : '',
   ].join('');
-  return `# SiteSift — reproducible screen of ${label.replace(/"/g, '')}
+  return `# SiteSift, reproducible screen of ${label.replace(/"/g, '')}
 # ${bundle.site.area_km2} km² · screened ${new Date().toISOString().slice(0, 10)}
 library(rgbif)
 
@@ -625,7 +625,7 @@ function pyScript(){
   const yt = document.getElementById('yto').value.trim();
   const basis = document.getElementById('basis').value;
   const wkt = bundle.site.wkt;
-  return `'''SiteSift — reproducible screen of ${label.replace(/"/g, '')}
+  return `'''SiteSift, reproducible screen of ${label.replace(/"/g, '')}
 ${bundle.site.area_km2} km² · screened ${new Date().toISOString().slice(0, 10)}
 '''
 import requests
@@ -644,7 +644,7 @@ params = [
 
 records = requests.get(GBIF, params=params, timeout=60).json()
 
-# note: iucnRedListCategory takes no comma list — one request per category
+# note: iucnRedListCategory takes no comma list, one request per category
 for cat in ("CR", "EN", "VU"):
     r = requests.get(GBIF, params=params[:4] + [
         ("iucnRedListCategory", cat), ("limit", 0),

@@ -158,7 +158,7 @@ def chart_top_countries(df):
 
 def chart_country_density(df):
     """
-    Observation Density Chart — country contribution as % of total.
+    Observation Density Chart, country contribution as % of total.
     Shows top 15 countries as a horizontal bar chart with
     percentage labels.
     """
@@ -346,7 +346,7 @@ def get_temporal_stats(df):
 def get_recommendations(summary, temporal_stats, df):
     recs = []
 
-    # ── duplicates — tiered thresholds ────────────────────
+    # ── duplicates, tiered thresholds ────────────────────
     dup_pct = summary.get("duplicate", {}).get("percent", 0)
     if dup_pct > 15:
         recs.append({

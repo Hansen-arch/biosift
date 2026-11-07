@@ -32,10 +32,10 @@ def build_dwca(df, species, score, clean_only=False):
 
     Parameters
     ----------
-    df         : DataFrame — occurrence data (already cleaned if clean_only)
-    species    : str — scientific name
-    score      : float — health score
-    clean_only : bool — label the archive as cleaned dataset
+    df         : DataFrame, occurrence data (already cleaned if clean_only)
+    species    : str, scientific name
+    score      : float, health score
+    clean_only : bool, label the archive as cleaned dataset
     """
     try:
         # ── 1. Prepare occurrence.csv ─────────────────────

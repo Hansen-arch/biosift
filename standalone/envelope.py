@@ -1,4 +1,4 @@
-"""Climate envelope — where the species sits in climate space.
+"""Climate envelope, where the species sits in climate space.
 
 Environmental layers are the usual blocker for browser-side niche
 work: WorldClim/CHELSA rasters are hundreds of megabytes and any
@@ -10,7 +10,7 @@ the envelope is sampled at the record locations themselves.
 Reported: annual temperature range, annual precipitation range,
 elevation range across sampled records, and monthly median curves for
 the charts. This is a descriptive envelope (where the records are), not
-a fitted niche model — no model is calibrated here.
+a fitted niche model, no model is calibrated here.
 """
 from concurrent.futures import ThreadPoolExecutor
 
@@ -48,7 +48,7 @@ def _fetch_point(lat: float, lon: float, timeout: int = 18):
         out = {
             "t2m": {m: t2m.get(m) for m in MONTHS},
             "prec": {m: prec.get(m) for m in MONTHS},
-            # ANN is not in MONTHS — keep the annual means explicitly
+            # ANN is not in MONTHS, keep the annual means explicitly
             "t2m_ann": t2m.get("ANN"),
             "prec_ann": prec.get("ANN"),
             "elev": z[2] if len(z) > 2 else None,
@@ -130,7 +130,7 @@ def climate_envelope(df: pd.DataFrame, sample: int = 24,
             "(monthly means aggregated to annual values)."
         ),
         "note": (
-            "Descriptive envelope of where records occur — a fitted "
+            "Descriptive envelope of where records occur, a fitted "
             "niche model would add background points and an algorithm."
         ),
     }

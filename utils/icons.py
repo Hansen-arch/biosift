@@ -3,7 +3,7 @@ BioSift Icon System
 ───────────────────
 Single-stroke, geometric SVG icons (Lucide via iconify CDN data-URI, then
 inlined static paths for zero-network rendering). Professional
-monochrome line icons — no emoji anywhere in the product.
+monochrome line icons, no emoji anywhere in the product.
 
 Usage:
     from utils.icons import icon

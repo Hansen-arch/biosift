@@ -1,4 +1,4 @@
-# AGENTS.md — BioSift
+# AGENTS.md, BioSift
 
 Biodiversity data-quality workbench over the GBIF API. Two apps on one
 science layer: Streamlit (`app.py` + `views/` + `utils/`) and standalone

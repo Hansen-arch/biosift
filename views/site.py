@@ -2,7 +2,7 @@
 BioSift: Site Screening page
 
 Site-level screening, folded in from the SiteSift prototype: draw, import or
-generate a boundary and every GBIF record inside it is summarised — species
+generate a boundary and every GBIF record inside it is summarised, species
 of concern, IUCN composition, native/introduced coverage, survey effort,
 record quality, publishing datasets, and which countries the records are
 attributed to.
@@ -70,7 +70,7 @@ def _view_polygon(bounds):
     into a 360-degree band.
     """
     if not bounds:
-        return None, ("No viewport reported yet — pan or zoom the map once, "
+        return None, ("No viewport reported yet, pan or zoom the map once, "
                       "then press this.")
     sw = bounds.get("_southWest") or {}
     ne = bounds.get("_northEast") or {}
@@ -78,13 +78,13 @@ def _view_polygon(bounds):
         west, south = float(sw["lng"]), float(sw["lat"])
         east, north = float(ne["lng"]), float(ne["lat"])
     except (KeyError, TypeError, ValueError):
-        return None, ("No viewport reported yet — pan or zoom the map once, "
+        return None, ("No viewport reported yet, pan or zoom the map once, "
                       "then press this.")
 
     # At the opening zoom the map shows the whole world, whose bounds run
     # past ±180 on both sides; that is not an antimeridian crossing.
     if east - west >= 360.0:
-        return None, ("The whole world is showing — zoom in until the site "
+        return None, ("The whole world is showing, zoom in until the site "
                       "fills the map, then press this.")
 
     # A view panned past the date line can sit entirely outside ±180.
@@ -96,10 +96,10 @@ def _view_polygon(bounds):
 
     if not (-180 <= west < east <= 180):
         return None, ("This view crosses the antimeridian, which one "
-                      "boundary cannot express — pan until the site sits "
+                      "boundary cannot express, pan until the site sits "
                       "on one side of 180°.")
     if south >= north:
-        return None, ("This view is too small to turn into a boundary — "
+        return None, ("This view is too small to turn into a boundary, "
                       "zoom out a step, or use the bounding box instead.")
     try:
         return bbox_polygon(west, south, east, north), None
@@ -180,7 +180,7 @@ def _boundary_from_upload(uploaded):
         st.error(f"Could not read **{uploaded.name}**: {e}")
         return None
     if note:
-        st.caption(f"Read {uploaded.name} — {note}.")
+        st.caption(f"Read {uploaded.name}, {note}.")
     return geometry
 
 
@@ -193,7 +193,7 @@ def _boundary_from_paste(text):
         st.error(f"Could not read the pasted boundary: {e}")
         return None
     if note:
-        st.caption(f"Read the pasted boundary — {note}.")
+        st.caption(f"Read the pasted boundary, {note}.")
     return geometry
 
 
@@ -275,7 +275,7 @@ def _render_bundle(bundle, geometry, lookup):
         T.alert("warn", "No records inside this boundary",
                 "GBIF holds no georeferenced PRESENT records here for the "
                 "selected filters. That is a statement about the data, not "
-                "about the site — widen the boundary, drop the year or "
+                "about the site, widen the boundary, drop the year or "
                 "country filter, or check the bounding box.")
         _render_exports(bundle, geometry)
         return
@@ -343,7 +343,7 @@ def _render_bundle(bundle, geometry, lookup):
                  height=min(600, 38 + 35 * len(species)))
     if summary["species_truncated"]:
         st.caption(f"Showing the 30 best-recorded of {summary['species_observed']}+ "
-                   "species — the facet was truncated at 300 names.")
+                   "species, the facet was truncated at 300 names.")
 
     # ── where the records come from ───────────────────────
     T.section("Country attribution")
@@ -357,7 +357,7 @@ def _render_bundle(bundle, geometry, lookup):
                              min_value=0, max_value=100),
                      })
     st.caption(
-        "GBIF's interpreted country — derived from the coordinates when the "
+        "GBIF's interpreted country, derived from the coordinates when the "
         "publisher left the field blank. Border sites, marine records and "
         "records held by foreign institutions can sit outside the country "
         "you expect, which is what the country filter acts on."
@@ -509,7 +509,7 @@ def _render_exports(bundle, geometry):
         )
     st.caption(
         "The bundle contains the boundary WKT, every count, the filters "
-        "applied and the method statement — enough for a colleague to "
+        "applied and the method statement, enough for a colleague to "
         "reproduce the screen."
     )
 
@@ -528,7 +528,7 @@ def render():
     countries, source = fetch_countries()
     lookup = {c["code"]: c["name"] for c in countries}
     if source == "fallback":
-        st.caption("Country list is the built-in short list — GBIF's "
+        st.caption("Country list is the built-in short list, GBIF's "
                    "country enumeration is unreachable right now.")
 
     T.section("Site boundary")
@@ -543,7 +543,7 @@ def render():
 
     if mode == "Draw on map":
         st.caption("Use the polygon or rectangle tool in the map's top-left "
-                   "corner. Draw it with either vertex order — clockwise "
+                   "corner. Draw it with either vertex order, clockwise "
                    "rings are re-wound before the query.")
         existing = st.session_state.get("ss_geometry")
         draw_result = st_folium(
@@ -668,7 +668,7 @@ def render():
     run = st.button("Screen site", type="primary", width="stretch",
                     disabled=(geometry is None or not years_valid))
     if geometry is None and not run:
-        st.caption("No boundary yet — draw one, or switch to another "
+        st.caption("No boundary yet, draw one, or switch to another "
                    "boundary source.")
 
     if run and geometry is not None:

@@ -30,7 +30,7 @@ FAILS = []
 
 def check(label, ok, detail=""):
     print(f"  [{'PASS' if ok else 'FAIL'}] {label}"
-          + (f" — {detail}" if detail else ""))
+          + (f", {detail}" if detail else ""))
     if not ok:
         FAILS.append(label)
 
@@ -162,7 +162,7 @@ def main():
         proc.terminate()
 
     print("\n" + ("RESULT: ALL CHECKS PASSED" if not FAILS
-                  else f"RESULT: {len(FAILS)} FAILED — {FAILS}"))
+                  else f"RESULT: {len(FAILS)} FAILED, {FAILS}"))
     return 1 if FAILS else 0
 
 

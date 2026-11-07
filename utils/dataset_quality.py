@@ -6,7 +6,7 @@ from utils.theme import C, D
 
 
 def _count_decimals(val):
-    """Float-noise safe decimal counter — local copy."""
+    """Float-noise safe decimal counter, local copy."""
     if pd.isna(val):
         return 0
     try:

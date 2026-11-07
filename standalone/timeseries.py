@@ -5,7 +5,7 @@ species `limit=500` lands entirely in the last year or two, so any
 range-shift or trend figure computed from it is meaningless. These
 probes give the missing history cheaply:
 
-  year_histogram   one `facet=year` request — population record counts
+  year_histogram   one `facet=year` request, population record counts
                    per year over the whole query window
   year_probes      counts/effort (`limit=0` + `datasetKey` and
                    `recordedBy` facets, ~1 s each) for up to
@@ -19,7 +19,7 @@ probes give the missing history cheaply:
                    reporting datasets) indexed to its own median
 
 Two GBIF quirks encoded here:
-  * only valid facet fields are honoured — `facet=dataset` is silently
+  * only valid facet fields are honoured, `facet=dataset` is silently
     ignored (`facets: []`); the working names are `datasetKey` and
     `recordedBy`
   * bursts of coordinate requests get throttled, so those use a small
@@ -201,7 +201,7 @@ def year_probes(species, year_from, year_to, basis, hist=None,
 
     # coordinate samples for both ends run alongside the counts phase
     # (each side walks outward from the true extremes until it holds
-    # enough rows — early years of a sparse species often carry no
+    # enough rows, early years of a sparse species often carry no
     # georeferenced records at all)
     with ThreadPoolExecutor(max_workers=3) as stage:
         f_counts = stage.submit(
@@ -261,12 +261,12 @@ def effort_trend(probes) -> dict | None:
             "Population totals per probed year (GBIF query counts, not "
             "the displayed sample). Index = records per distinct "
             "recorder (reporting datasets where no recorder name is "
-            "given), median = 100 — the effort control means a year "
+            "given), median = 100, the effort control means a year "
             "where more people or datasets report is not counted as a "
             "rise."
         ),
         "caveat": (
-            "Reporting rate, not abundance or occupancy — use it to "
+            "Reporting rate, not abundance or occupancy, use it to "
             "judge whether a count change is coverage."
         ),
         "targeted": {"years_sampled": len(rows),
